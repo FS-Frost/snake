@@ -17,5 +17,5 @@ const sketch = (p: p5) => {
     };
 };
 
-new p5(sketch);
+new p5(sketch, document.querySelector("#game"));
 console.log("main");

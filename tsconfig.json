@@ -1,11 +1,11 @@
 {
     "compilerOptions": {
-        "module": "ES2015",
+        "module": "ES2020",
         "jsx": "preserve",
         "esModuleInterop": true,
         "sourceMap": true,
         "allowJs": true,
-        "lib": ["es6", "dom"],
+        "lib": ["ES2020", "dom"],
         "rootDir": ".",
         "moduleResolution": "node",
         "allowSyntheticDefaultImports": true,

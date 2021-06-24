@@ -15,12 +15,22 @@ class Game {
     grid: Grid;
     snake: Snake;
     food: Food;
+    playTimeInMs: number;
+    score: number;
+    pDebug: p5.Element;
+    pScore: p5.Element;
+    pTime: p5.Element;
 
     constructor() {
         p = Static.getP5();
+        this.score = 0;
+        this.playTimeInMs = 0;
         this.grid = new Grid();
         this.spawnSnake();
         this.spawnFood();
+        this.pDebug = p.select("#debug");
+        this.pScore = p.select("#score");
+        this.pTime = p.select("#time");
     }
 
     spawnSnake() {
@@ -60,6 +70,7 @@ class Game {
         this.snake.update();
 
         if (this.snakeIsEating()) {
+            this.score++;
             this.snake.grow();
             this.spawnFood();
         }
@@ -71,6 +82,33 @@ class Game {
         this.grid.show();
         this.snake.show();
         this.food.show();
+
+        this.showTime();
+        this.showScore();
+        // this.showDebug();
+    }
+
+    showScore() {
+        this.pScore.html(`Score: ${this.score}`);
+    }
+
+    showDebug() {
+        const { x: snakeX, y: snakeY } = this.snake.getHead();
+        this.pDebug.html(`Position: ${snakeX},${snakeY}`);
+    }
+
+    showTime() {
+        this.playTimeInMs += p.deltaTime;
+        const time = new Date(0, 0, 0, 0, 0, 0, 0);
+        time.setMilliseconds(this.playTimeInMs);
+        const pad = (n: number) => {
+            return String(n).padStart(2, "0");
+        };
+        const hours = pad(time.getHours());
+        const minutes = pad(time.getMinutes());
+        const seconds = pad(time.getSeconds());
+        const timeString = `${hours}:${minutes}:${seconds}`;
+        this.pTime.html(`Time: ${timeString}`);
     }
 
     print(msg: string) {
