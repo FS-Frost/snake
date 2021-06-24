@@ -20,6 +20,7 @@ class Game {
     pDebug: p5.Element;
     pScore: p5.Element;
     pTime: p5.Element;
+    isPaused: boolean;
 
     constructor() {
         p = Static.getP5();
@@ -31,6 +32,7 @@ class Game {
         this.pDebug = p.select("#debug");
         this.pScore = p.select("#score");
         this.pTime = p.select("#time");
+        this.isPaused = false;
     }
 
     spawnSnake() {

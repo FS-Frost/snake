@@ -2,13 +2,19 @@ import Game from "./game";
 import Static from "./static";
 
 let game: Game;
+let btnPause: p5.Element;
+let _p: p5;
 
 const sketch = (p: p5) => {
     p.setup = () => {
+        _p = p;
         Static.setP5(p);
         p.createCanvas(Game.WIDTH, Game.HEIGHT);
         p.background(220);
         game = new Game();
+
+        btnPause = p.select("#pause");
+        btnPause.mouseClicked(togglePause);
     };
 
     p.draw = () => {
@@ -16,6 +22,19 @@ const sketch = (p: p5) => {
         game.show();
     };
 };
+
+function togglePause() {
+    if (game.isPaused) {
+        btnPause.html("Resume");
+        game.isPaused = false;
+        _p.loop();
+        return;
+    }
+
+    btnPause.html("Pause");
+    game.isPaused = true;
+    _p.noLoop();
+}
 
 new p5(sketch, document.querySelector("#game"));
 console.log("main");
