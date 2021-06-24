@@ -1,2 +1,33 @@
-var m=class{static setP5(t){m._p5=t}static getP5(){return m._p5}},C=m.getP5,h=m;var f,y=class{constructor(t,e){f=h.getP5(),this.position=f.createVector(t,e),this.size=s.CELL_SIZE}update(){}show(){f.fill("red"),f.rect(this.position.x,this.position.y,this.size,this.size)}},E=y;var a,I=class{constructor(){a=h.getP5(),this.rows=s.HEIGHT/s.CELL_SIZE,this.columns=s.WIDTH/s.CELL_SIZE,a.print(`Grid: ${this.rows}x${this.columns}`)}getRandomPosition(){let t=a.floor(a.random(1,this.rows)),e=a.floor(a.random(1,this.columns)),o=t*s.CELL_SIZE,n=e*s.CELL_SIZE;return a.createVector(o,n)}show(){a.fill("white"),a.rect(0,0,s.WIDTH,s.HEIGHT);for(let t=1;t<this.columns;t++){let e=s.CELL_SIZE*t,o=0,n=s.HEIGHT;a.line(e,o,e,n)}for(let t=1;t<this.rows;t++){let e=s.CELL_SIZE*t,o=0,n=s.WIDTH;a.line(o,e,n,e)}}},k=I;var i,T=class{constructor(t,e,o){this.maxFramesToMove=2,i=h.getP5(),this.framesToMove=5,this.speed=s.CELL_SIZE,this.velocity=i.createVector(this.speed,0),this.size=o,this.body=[];for(let n=0;n<this.size;n++){let l=t+n*s.CELL_SIZE,d=i.createVector(l,e);this.body.push(d)}}update(){this.checkInput(),this.updatePosition(),this.checkBoundaries()}getHead(){return this.body[0]}checkInput(){let t=this.velocity.copy();i.keyCode==i.UP_ARROW&&(t=i.createVector(0,-this.speed)),i.keyCode==i.DOWN_ARROW&&(t=i.createVector(0,this.speed)),i.keyCode==i.LEFT_ARROW&&(t=i.createVector(-this.speed,0)),i.keyCode==i.RIGHT_ARROW&&(t=i.createVector(this.speed,0)),!(-t.x==this.velocity.x||-t.y==this.velocity.y)&&(this.velocity=t)}updatePosition(){if(i.frameCount%this.framesToMove==0){let t=this.getHead().copy().add(this.velocity);this.body.length!=this.size||this.body.pop(),this.body.unshift(t)}}checkBoundaries(){let t=this.getHead();if(t.x==s.WIDTH){t.x=0;return}if(t.y==s.HEIGHT){t.y=0;return}if(t.x<0){t.x=s.WIDTH-s.CELL_SIZE;return}if(t.y<0){t.y=s.HEIGHT-s.CELL_SIZE;return}}grow(){this.size++,this.framesToMove>this.maxFramesToMove&&this.framesToMove--}show(){i.fill("green");for(let t=0;t<this.body.length;t++){let{x:e,y:o}=this.body[t];i.rect(e,o,s.CELL_SIZE,s.CELL_SIZE)}}},S=T;var c,u=class{constructor(){this._logX=15,c=h.getP5(),this.score=0,this.playTimeInMs=0,this.grid=new k,this.spawnSnake(),this.spawnFood(),this.pDebug=c.select("#debug"),this.pScore=c.select("#score"),this.pTime=c.select("#time"),this.isPaused=!1}spawnSnake(){let{x:t,y:e}=this.grid.getRandomPosition(),o=3;this.snake=new S(t,e,o)}spawnFood(){let{x:t,y:e}=this.snake.getHead(),o,n,l,d=1;do if({x:o,y:n}=this.grid.getRandomPosition(),l=o==t&&n==e,d++,d>100)throw new Error("The food is in the way! Too much recursion.");while(l);this.food=new E(o,n)}snakeIsEating(){let{x:t,y:e}=this.snake.getHead(),{x:o,y:n}=this.food.position;return c.dist(t,e,o,n)==0}update(){this.snake.update(),this.snakeIsEating()&&(this.score++,this.snake.grow(),this.spawnFood())}show(){this._logY=this._logX,c.background(220),this.grid.show(),this.snake.show(),this.food.show(),this.showTime(),this.showScore()}showScore(){this.pScore.html(`Score: ${this.score}`)}showDebug(){let{x:t,y:e}=this.snake.getHead();this.pDebug.html(`Position: ${t},${e}`)}showTime(){this.playTimeInMs+=c.deltaTime;let t=new Date(0,0,0,0,0,0,0);t.setMilliseconds(this.playTimeInMs);let e=H=>String(H).padStart(2,"0"),o=e(t.getHours()),n=e(t.getMinutes()),l=e(t.getSeconds()),d=`${o}:${n}:${l}`;this.pTime.html(`Time: ${d}`)}print(t){c.fill("black"),c.text(t,this._logX,this._logY),this._logY+=this._logY}};u.WIDTH=500;u.HEIGHT=500;u.CELL_SIZE=25;var s=u;var p,g,w,_=r=>{r.setup=()=>{w=r,h.setP5(r),r.createCanvas(s.WIDTH,s.HEIGHT),r.background(220),p=new s,g=r.select("#pause"),g.mouseClicked(L)},r.draw=()=>{p.update(),p.show()}};function L(){if(p.isPaused){g.html("Resume"),p.isPaused=!1,w.loop();return}g.html("Pause"),p.isPaused=!0,w.noLoop()}new p5(_,document.querySelector("#game"));console.log("main");
-//# sourceMappingURL=main.js.map
+import Game from "./game.js";
+import Static from "./static.js";
+let game;
+let btnPause;
+let _p;
+const sketch = (p) => {
+  p.setup = () => {
+    _p = p;
+    Static.setP5(p);
+    p.createCanvas(Game.WIDTH, Game.HEIGHT);
+    p.background(220);
+    game = new Game();
+    btnPause = p.select("#pause");
+    btnPause.mouseClicked(togglePause);
+  };
+  p.draw = () => {
+    game.update();
+    game.show();
+  };
+};
+function togglePause() {
+  if (game.isPaused) {
+    btnPause.html("Resume");
+    game.isPaused = false;
+    _p.loop();
+    return;
+  }
+  btnPause.html("Pause");
+  game.isPaused = true;
+  _p.noLoop();
+}
+new p5(sketch, document.querySelector("#game"));
+console.log("main");
