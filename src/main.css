@@ -1,0 +1,19 @@
+body {
+    font-family: "Roboto";
+}
+
+main {
+    display: flex;
+}
+
+.info {
+    display: flex;
+    flex-direction: column;
+    padding: 0.5rem;
+}
+
+.info p {
+    margin-top: 0;
+    margin-bottom: 0.5rem;
+    font-size: large;
+}
