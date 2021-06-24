@@ -1,0 +1,16 @@
+{
+    "compilerOptions": {
+        "module": "ES2015",
+        "jsx": "preserve",
+        "esModuleInterop": true,
+        "sourceMap": true,
+        "allowJs": true,
+        "lib": ["es6", "dom"],
+        "rootDir": ".",
+        "moduleResolution": "node",
+        "allowSyntheticDefaultImports": true,
+        "allowUmdGlobalAccess": true
+    },
+    "include": ["./src/**/*"],
+    "exclude": ["./node_modules", "./build"]
+}
