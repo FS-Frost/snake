@@ -80,23 +80,23 @@ class Snake {
     checkBoundaries() {
         const head = this.getHead();
 
-        if (head.x > Game.WIDTH) {
+        if (head.x == Game.WIDTH) {
             head.x = 0;
             return;
         }
 
-        if (head.y > Game.HEIGHT) {
+        if (head.y == Game.HEIGHT) {
             head.y = 0;
             return;
         }
 
         if (head.x < 0) {
-            head.x = Game.WIDTH;
+            head.x = Game.WIDTH - Game.CELL_SIZE;
             return;
         }
 
         if (head.y < 0) {
-            head.y = Game.HEIGHT;
+            head.y = Game.HEIGHT - Game.CELL_SIZE;
             return;
         }
     }
