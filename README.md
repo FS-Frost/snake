@@ -1,13 +1,17 @@
 # snake
 
-## Init
+🐍 Snake clone with p5.js.
+
+## Play online
+https://fs-frost.github.io/snake/
+
+## Play offline
 
 ```shell
+git clone https://github.com/FS-Frost/snake
+cd snake
 yarn install
-```
-
-## Run
-
-```shell
 yarn run dev
 ```
+
+Play on http://localhost:8080/
