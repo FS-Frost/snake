@@ -14,7 +14,7 @@ class Snake {
 
     constructor(x: number, y: number, size: number) {
         p = Static.getP5();
-        this.framesToMove = 5;
+        this.framesToMove = 15;
         this.speed = Game.CELL_SIZE;
         this.velocity = p.createVector(this.speed, 0);
         this.size = size;
