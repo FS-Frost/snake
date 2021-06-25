@@ -5,19 +5,21 @@ let p: p5;
 
 class Food {
     position: p5.Vector;
-    private size: number;
 
     constructor(x: number, y: number) {
         p = Static.getP5();
         this.position = p.createVector(x, y);
-        this.size = Game.CELL_SIZE;
     }
 
     update() {}
 
     show() {
         p.fill("red");
-        p.rect(this.position.x, this.position.y, this.size, this.size);
+        const offset = Game.CELL_SIZE / 2;
+        const x = this.position.x + offset;
+        const y = this.position.y + offset;
+        const d = Game.CELL_SIZE * 0.8;
+        p.circle(x, y, d);
     }
 }
 
