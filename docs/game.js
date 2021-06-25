@@ -3,11 +3,12 @@ import Grid from "./grid.js";
 import Snake from "./snake.js";
 import Static from "./static.js";
 let p;
-class Game {
+const _Game = class {
   constructor(onGameOver) {
     this._logX = 15;
     p = Static.getP5();
     this.onGameOver = onGameOver;
+    this.fps = _Game.MIN_FPS;
     this.score = 0;
     this.playTimeInMs = 0;
     this.grid = new Grid();
@@ -16,6 +17,7 @@ class Game {
     this.pDebug = p.select("#debug");
     this.pScore = p.select("#score");
     this.pTime = p.select("#time");
+    this.pSpeed = p.select("#speed");
     this.isPaused = false;
     this.isOver = false;
   }
@@ -46,13 +48,18 @@ class Game {
     const d = p.dist(snakeX, snakeY, foodX, foodY);
     return d == 0;
   }
+  speedUp() {
+    this.fps += 0.5;
+    this.fps = p.constrain(this.fps, _Game.MIN_FPS, _Game.MAX_FPS);
+  }
   update() {
     this.snake.update();
     if (this.snakeIsEating()) {
-      this.score++;
+      this.speedUp();
       this.snake.grow();
       this.spawnFood();
     }
+    p.frameRate(this.fps);
   }
   show() {
     this._logY = this._logX;
@@ -62,9 +69,14 @@ class Game {
     this.food.show();
     this.showTime();
     this.showScore();
+    this.showSpeed();
   }
   showScore() {
     this.pScore.html(`Score: ${this.score}`);
+  }
+  showSpeed() {
+    const speed = this.fps * 100 / _Game.MAX_FPS;
+    this.pSpeed.html(`Speed: ${speed}%`);
   }
   showDebug() {
     const {x: snakeX, y: snakeY} = this.snake.getHead();
@@ -88,8 +100,11 @@ class Game {
     p.text(msg, this._logX, this._logY);
     this._logY += this._logY;
   }
-}
+};
+let Game = _Game;
 Game.WIDTH = 500;
 Game.HEIGHT = 500;
 Game.CELL_SIZE = 25;
+Game.MIN_FPS = 2;
+Game.MAX_FPS = 40;
 export default Game;

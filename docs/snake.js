@@ -3,9 +3,7 @@ import Static from "./static.js";
 let p;
 class Snake {
   constructor(x, y, size) {
-    this.maxFramesToMove = 2;
     p = Static.getP5();
-    this.framesToMove = 15;
     this.speed = Game.CELL_SIZE;
     this.velocity = p.createVector(this.speed, 0);
     this.size = size;
@@ -17,9 +15,6 @@ class Snake {
     }
   }
   update() {
-    if (p.frameCount % this.framesToMove != 0) {
-      return;
-    }
     this.updateDirection();
     this.updatePosition();
     this.checkBoundaries();
@@ -104,9 +99,6 @@ class Snake {
   }
   grow() {
     this.size++;
-    if (this.framesToMove > this.maxFramesToMove) {
-      this.framesToMove--;
-    }
   }
   show() {
     for (let i = 0; i < this.body.length; i++) {

@@ -9,9 +9,12 @@ class Game {
     static readonly WIDTH = 500;
     static readonly HEIGHT = 500;
     static readonly CELL_SIZE = 25;
+    static readonly MIN_FPS = 2;
+    static readonly MAX_FPS = 40;
     private readonly _logX = 15;
     private _logY: number;
 
+    fps: number;
     grid: Grid;
     snake: Snake;
     food: Food;
@@ -19,6 +22,7 @@ class Game {
     score: number;
     pDebug: p5.Element;
     pScore: p5.Element;
+    pSpeed: p5.Element;
     pTime: p5.Element;
     isPaused: boolean;
     isOver: boolean;
@@ -27,6 +31,7 @@ class Game {
     constructor(onGameOver: () => void) {
         p = Static.getP5();
         this.onGameOver = onGameOver;
+        this.fps = Game.MIN_FPS;
         this.score = 0;
         this.playTimeInMs = 0;
         this.grid = new Grid();
@@ -35,6 +40,7 @@ class Game {
         this.pDebug = p.select("#debug");
         this.pScore = p.select("#score");
         this.pTime = p.select("#time");
+        this.pSpeed = p.select("#speed");
         this.isPaused = false;
         this.isOver = false;
     }
@@ -72,14 +78,21 @@ class Game {
         return d == 0;
     }
 
+    speedUp() {
+        this.fps += 0.5;
+        this.fps = p.constrain(this.fps, Game.MIN_FPS, Game.MAX_FPS);
+    }
+
     update() {
         this.snake.update();
 
         if (this.snakeIsEating()) {
-            this.score++;
+            this.speedUp();
             this.snake.grow();
             this.spawnFood();
         }
+
+        p.frameRate(this.fps);
     }
 
     show() {
@@ -91,11 +104,17 @@ class Game {
 
         this.showTime();
         this.showScore();
+        this.showSpeed();
         // this.showDebug();
     }
 
     showScore() {
         this.pScore.html(`Score: ${this.score}`);
+    }
+
+    showSpeed() {
+        const speed = (this.fps * 100) / Game.MAX_FPS;
+        this.pSpeed.html(`Speed: ${speed}%`);
     }
 
     showDebug() {
