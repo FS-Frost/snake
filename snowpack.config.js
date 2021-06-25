@@ -11,8 +11,8 @@ module.exports = {
         out: "./docs",
     },
     optimize: {
-        bundle: true,
-        minify: true,
+        bundle: false,
+        minify: false,
         target: "es2018",
     },
 };

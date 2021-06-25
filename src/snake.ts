@@ -5,6 +5,7 @@ let p: p5;
 
 class Snake {
     body: p5.Vector[];
+    onDeath: () => void;
     private velocity: p5.Vector;
     private speed: number;
     private size: number;
@@ -20,14 +21,18 @@ class Snake {
         this.body = [];
 
         for (let i = 0; i < this.size; i++) {
-            const _x = x + i * Game.CELL_SIZE;
+            const _x = x - i * Game.CELL_SIZE;
             const position = p.createVector(_x, y);
             this.body.push(position);
         }
     }
 
     update() {
-        this.checkInput();
+        if (p.frameCount % this.framesToMove != 0) {
+            return;
+        }
+
+        this.updateDirection();
         this.updatePosition();
         this.checkBoundaries();
     }
@@ -36,23 +41,22 @@ class Snake {
         return this.body[0];
     }
 
-    checkInput() {
+    updateDirection() {
         let newVelocity = this.velocity.copy();
 
-        if (p.keyCode == p.UP_ARROW) {
-            newVelocity = p.createVector(0, -this.speed);
-        }
-
-        if (p.keyCode == p.DOWN_ARROW) {
-            newVelocity = p.createVector(0, this.speed);
-        }
-
-        if (p.keyCode == p.LEFT_ARROW) {
-            newVelocity = p.createVector(-this.speed, 0);
-        }
-
-        if (p.keyCode == p.RIGHT_ARROW) {
-            newVelocity = p.createVector(this.speed, 0);
+        switch (p.keyCode) {
+            case p.UP_ARROW:
+                newVelocity = p.createVector(0, -this.speed);
+                break;
+            case p.DOWN_ARROW:
+                newVelocity = p.createVector(0, this.speed);
+                break;
+            case p.LEFT_ARROW:
+                newVelocity = p.createVector(-this.speed, 0);
+                break;
+            case p.RIGHT_ARROW:
+                newVelocity = p.createVector(this.speed, 0);
+                break;
         }
 
         const isOpposite = -newVelocity.x == this.velocity.x || -newVelocity.y == this.velocity.y;
@@ -64,17 +68,35 @@ class Snake {
         this.velocity = newVelocity;
     }
 
-    updatePosition() {
-        if (p.frameCount % this.framesToMove == 0) {
-            const newHead = this.getHead().copy().add(this.velocity);
-            const hasGrown = this.body.length != this.size;
+    hitsBody(newHead: p5.Vector) {
+        let isDead = false;
 
-            if (!hasGrown) {
-                this.body.pop();
+        for (let i = 1; i < this.body.length; i++) {
+            const slice = this.body[i];
+            isDead = p.dist(slice.x, slice.y, newHead.x, newHead.y) == 0;
+
+            if (isDead) {
+                break;
             }
-
-            this.body.unshift(newHead);
         }
+
+        return isDead;
+    }
+
+    updatePosition() {
+        const newHead = this.getHead().copy().add(this.velocity);
+        const hasGrown = this.body.length != this.size;
+
+        if (!hasGrown) {
+            this.body.pop();
+        }
+
+        if (this.hitsBody(newHead)) {
+            this.onDeath();
+            return;
+        }
+
+        this.body.unshift(newHead);
     }
 
     checkBoundaries() {
@@ -101,6 +123,21 @@ class Snake {
         }
     }
 
+    intersects(x: number, y: number) {
+        let intersects = false;
+
+        for (let i = 0; i < this.body.length; i++) {
+            const { x: bodyX, y: bodyY } = this.body[i];
+            intersects = x == bodyX && y == bodyY;
+
+            if (intersects) {
+                break;
+            }
+        }
+
+        return intersects;
+    }
+
     grow() {
         this.size++;
 
@@ -110,9 +147,9 @@ class Snake {
     }
 
     show() {
-        p.fill("green");
-
         for (let i = 0; i < this.body.length; i++) {
+            p.fill(i == 0 ? "blue" : "green");
+
             const { x, y } = this.body[i];
             p.rect(x, y, Game.CELL_SIZE, Game.CELL_SIZE);
         }

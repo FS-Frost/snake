@@ -21,9 +21,12 @@ class Game {
     pScore: p5.Element;
     pTime: p5.Element;
     isPaused: boolean;
+    isOver: boolean;
+    onGameOver: () => void;
 
-    constructor() {
+    constructor(onGameOver: () => void) {
         p = Static.getP5();
+        this.onGameOver = onGameOver;
         this.score = 0;
         this.playTimeInMs = 0;
         this.grid = new Grid();
@@ -33,16 +36,17 @@ class Game {
         this.pScore = p.select("#score");
         this.pTime = p.select("#time");
         this.isPaused = false;
+        this.isOver = false;
     }
 
     spawnSnake() {
         const { x, y } = this.grid.getRandomPosition();
         const initialSize = 3;
         this.snake = new Snake(x, y, initialSize);
+        this.snake.onDeath = this.onGameOver;
     }
 
     spawnFood() {
-        const { x: snakeX, y: snakeY } = this.snake.getHead();
         let foodX: number;
         let foodY: number;
         let snakeAndFoodCollide: Boolean;
@@ -50,7 +54,7 @@ class Game {
 
         do {
             ({ x: foodX, y: foodY } = this.grid.getRandomPosition());
-            snakeAndFoodCollide = foodX == snakeX && foodY == snakeY;
+            snakeAndFoodCollide = this.snake.intersects(foodX, foodY);
             loopCount++;
 
             if (loopCount > 100) {

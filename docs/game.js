@@ -4,9 +4,10 @@ import Snake from "./snake.js";
 import Static from "./static.js";
 let p;
 class Game {
-  constructor() {
+  constructor(onGameOver) {
     this._logX = 15;
     p = Static.getP5();
+    this.onGameOver = onGameOver;
     this.score = 0;
     this.playTimeInMs = 0;
     this.grid = new Grid();
@@ -16,21 +17,22 @@ class Game {
     this.pScore = p.select("#score");
     this.pTime = p.select("#time");
     this.isPaused = false;
+    this.isOver = false;
   }
   spawnSnake() {
     const {x, y} = this.grid.getRandomPosition();
     const initialSize = 3;
     this.snake = new Snake(x, y, initialSize);
+    this.snake.onDeath = this.onGameOver;
   }
   spawnFood() {
-    const {x: snakeX, y: snakeY} = this.snake.getHead();
     let foodX;
     let foodY;
     let snakeAndFoodCollide;
     let loopCount = 1;
     do {
       ({x: foodX, y: foodY} = this.grid.getRandomPosition());
-      snakeAndFoodCollide = foodX == snakeX && foodY == snakeY;
+      snakeAndFoodCollide = this.snake.intersects(foodX, foodY);
       loopCount++;
       if (loopCount > 100) {
         throw new Error("The food is in the way! Too much recursion.");
