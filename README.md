@@ -1,8 +1,9 @@
 # snake
 
-🐍 Snake clone with p5.js.
+🐍 Snake clone with [p5.js](https://p5js.org/).
 
 ## Play online
+
 https://fs-frost.github.io/snake/
 
 ## Play offline
