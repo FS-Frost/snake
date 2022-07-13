@@ -1,10 +1,16 @@
 # snake
 
-🐍 Snake clone with [p5.js](https://p5js.org/).
+🐍 Snake clone!
 
 ## Play online
 
 https://fs-frost.github.io/snake/
+
+## Built with
+
+- [p5.js](https://p5js.org/)
+- [TypeScript](https://www.typescriptlang.org/)
+- [Snowpack](https://www.snowpack.dev/)
 
 ## Play offline
 
