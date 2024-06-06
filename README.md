@@ -17,8 +17,8 @@ https://fs-frost.github.io/snake/
 ```shell
 git clone https://github.com/FS-Frost/snake
 cd snake
-yarn install
-yarn run dev
+bun install
+bun run dev
 ```
 
-Play on http://localhost:8080/
+Play on http://localhost:5000/

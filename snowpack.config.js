@@ -6,6 +6,7 @@ module.exports = {
     packageOptions: {},
     devOptions: {
         open: "none",
+        port: 5000,
     },
     buildOptions: {
         out: "./docs",
