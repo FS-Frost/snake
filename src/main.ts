@@ -1,4 +1,3 @@
-import p5 from "p5";
 import Game from "./game";
 import Static from "./static";
 

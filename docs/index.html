@@ -1,71 +1,75 @@
 <!DOCTYPE html><html lang="en"><head>
-        <meta charset="UTF-8">
-        <meta http-equiv="X-UA-Compatible" content="IE=edge">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Snake</title>
-        <link rel="icon" type="image/png" href="/favicon.png">
-        <link rel="manifest" href="manifest.json">
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto">
-    </head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake</title>
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto">
 
-    <body>
-        <main>
-            <div id="game"></div>
-            <div class="info">
-                <button id="pause">Pause</button>
-                <p id="score"></p>
-                <p id="time"></p>
-                <p id="speed"></p>
-                <p id="debug"></p>
-                <div class="controls">
-                    <p>Controls:</p>
-                    <table>
-                        <tbody><tr>
-                            <td>Up:</td>
-                            <td>↑</td>
-                        </tr>
-                        <tr>
-                            <td>Down:</td>
-                            <td>↓</td>
-                        </tr>
-                        <tr>
-                            <td>Left:</td>
-                            <td>←</td>
-                        </tr>
-                        <tr>
-                            <td>Right:</td>
-                            <td>→</td>
-                        </tr>
-                    </tbody></table>
-                </div>
-                <b><a href="https://github.com/FS-Frost/snake" target="_blank">🐍 Source code</a></b>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.0.0/p5.min.js" integrity="sha256-Pg1di+fBF53Rbh9oZR/FeD1xsFzTLC963lcac1D0ias=" crossorigin="anonymous"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.0.0/addons/p5.sound.min.js" integrity="sha256-UySade9ZHGHdcdkTGEpftp/ZZbn9HYCe53RkvVFm9sM=" crossorigin="anonymous"></script>
+</head>
+
+<body>
+    <main>
+        <div id="game"></div>
+        <div class="info">
+            <button id="pause">Pause</button>
+            <p id="score"></p>
+            <p id="time"></p>
+            <p id="speed"></p>
+            <p id="debug"></p>
+            <div class="controls">
+                <p>Controls:</p>
+                <table>
+                    <tbody><tr>
+                        <td>Up:</td>
+                        <td>↑</td>
+                    </tr>
+                    <tr>
+                        <td>Down:</td>
+                        <td>↓</td>
+                    </tr>
+                    <tr>
+                        <td>Left:</td>
+                        <td>←</td>
+                    </tr>
+                    <tr>
+                        <td>Right:</td>
+                        <td>→</td>
+                    </tr>
+                </tbody></table>
             </div>
-        </main>
-    
+            <b><a href="https://github.com/FS-Frost/snake" target="_blank">🐍 Source code</a></b>
+        </div>
+    </main>
 
-    <script src="main.js" type="module"></script>
-    <link rel="stylesheet" href="main.css">
 
-    <script>
-        if ("serviceWorker" in navigator) {
-            window.addEventListener("load", function () {
-                navigator.serviceWorker
-                    .register("worker.js")
-                    .then(
-                        function (registration) {
-                            console.log("Worker registration successful", registration.scope);
-                        },
-                        function (err) {
-                            console.log("Worker registration failed", err);
-                        }
-                    )
-                    .catch(function (err) {
-                        console.log(err);
-                    });
-            });
-        } else {
-            console.log("Service Worker is not supported by browser.");
-        }
-    </script>
+<script src="main.js" type="module"></script>
+<link rel="stylesheet" href="main.css">
+
+<script>
+    if ("serviceWorker" in navigator) {
+        window.addEventListener("load", function () {
+            navigator.serviceWorker
+                .register("worker.js")
+                .then(
+                    function (registration) {
+                        console.log("Worker registration successful", registration.scope);
+                    },
+                    function (err) {
+                        console.log("Worker registration failed", err);
+                    }
+                )
+                .catch(function (err) {
+                    console.log(err);
+                });
+        });
+    } else {
+        console.log("Service Worker is not supported by browser.");
+    }
+</script>
 
 </body></html>

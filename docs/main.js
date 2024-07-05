@@ -1,4 +1,3 @@
-import p5 from "./_snowpack/pkg/p5.js";
 import Game from "./game.js";
 import Static from "./static.js";
 let game;
