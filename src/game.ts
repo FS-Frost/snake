@@ -9,8 +9,8 @@ class Game {
     static readonly WIDTH = 500;
     static readonly HEIGHT = 500;
     static readonly CELL_SIZE = 25;
-    static readonly MIN_FPS = 2;
-    static readonly MAX_FPS = 40;
+    static readonly MIN_FPS = 4;
+    static readonly MAX_FPS = 60;
     private readonly _logX = 15;
     private _logY: number;
 
@@ -79,7 +79,7 @@ class Game {
     }
 
     speedUp() {
-        this.fps += 0.5;
+        this.fps++;
         this.fps = p.constrain(this.fps, Game.MIN_FPS, Game.MAX_FPS);
     }
 
@@ -87,6 +87,8 @@ class Game {
         this.snake.update();
 
         if (this.snakeIsEating()) {
+            console.log("ñam ñam");
+            this.score++;
             this.speedUp();
             this.snake.grow();
             this.spawnFood();
@@ -114,7 +116,7 @@ class Game {
 
     showSpeed() {
         const speed = (this.fps * 100) / Game.MAX_FPS;
-        this.pSpeed.html(`Speed: ${speed}%`);
+        this.pSpeed.html(`Speed: ${speed.toFixed(0)}%`);
     }
 
     showDebug() {
@@ -126,9 +128,7 @@ class Game {
         this.playTimeInMs += p.deltaTime;
         const time = new Date(0, 0, 0, 0, 0, 0, 0);
         time.setMilliseconds(this.playTimeInMs);
-        const pad = (n: number) => {
-            return String(n).padStart(2, "0");
-        };
+        const pad = (n: number) => n.toString().padStart(2, "0");
         const hours = pad(time.getHours());
         const minutes = pad(time.getMinutes());
         const seconds = pad(time.getSeconds());

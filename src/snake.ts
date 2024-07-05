@@ -18,8 +18,8 @@ class Snake {
         this.body = [];
 
         for (let i = 0; i < this.size; i++) {
-            const _x = x - i * Game.CELL_SIZE;
-            const position = p.createVector(_x, y);
+            const cellX = x - i * Game.CELL_SIZE;
+            const position = p.createVector(cellX, y);
             this.body.push(position);
         }
     }

@@ -4,7 +4,6 @@
         "jsx": "preserve",
         "esModuleInterop": true,
         "sourceMap": true,
-        "allowJs": true,
         "lib": ["ES2020", "dom"],
         "rootDir": ".",
         "moduleResolution": "node",

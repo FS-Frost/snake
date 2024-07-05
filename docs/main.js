@@ -1,3 +1,4 @@
+import p5 from "./_snowpack/pkg/p5.js";
 import Game from "./game.js";
 import Static from "./static.js";
 let game;
@@ -20,7 +21,7 @@ const sketch = (p) => {
 };
 function togglePause() {
   if (game.isPaused) {
-    btnPause.html("Resume");
+    btnPause.html("Pause");
     game.isPaused = false;
     _p.loop();
     return;
@@ -31,7 +32,7 @@ function togglePause() {
     _p.loop();
     return;
   }
-  btnPause.html("Pause");
+  btnPause.html("Resume");
   game.isPaused = true;
   _p.noLoop();
 }
@@ -39,7 +40,9 @@ function handleGameOver() {
   game.isOver = true;
   btnPause.html("Restart");
   _p.noLoop();
-  console.log("GAME OVER");
+  const msg = "GAME OVER";
+  console.log(msg);
+  alert(msg);
 }
 new p5(sketch, document.querySelector("#game"));
 console.log("main");

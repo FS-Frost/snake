@@ -1,3 +1,4 @@
+import p5 from "p5";
 import Game from "./game";
 import Static from "./static";
 
@@ -25,7 +26,7 @@ const sketch = (p: p5) => {
 
 function togglePause() {
     if (game.isPaused) {
-        btnPause.html("Resume");
+        btnPause.html("Pause");
         game.isPaused = false;
         _p.loop();
         return;
@@ -38,7 +39,7 @@ function togglePause() {
         return;
     }
 
-    btnPause.html("Pause");
+    btnPause.html("Resume");
     game.isPaused = true;
     _p.noLoop();
 }
@@ -47,7 +48,9 @@ function handleGameOver() {
     game.isOver = true;
     btnPause.html("Restart");
     _p.noLoop();
-    console.log("GAME OVER");
+    const msg = "GAME OVER";
+    console.log(msg);
+    alert(msg);
 }
 
 new p5(sketch, document.querySelector("#game"));
