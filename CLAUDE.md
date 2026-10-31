@@ -11,7 +11,7 @@ Snake game, neon/synthwave style, built to feel like a native game (no DOM UI, n
 ## Commands
 
 - `bun run dev`: dev server on http://localhost:5000. Exposes `window.game` (dev only) for debugging.
-- `bun run build`: typecheck + build to `dist/`.
+- `bun run build`: typecheck + build to `dist/` (includes the PWA service worker and manifest from `vite-plugin-pwa`, configured in `vite.config.ts`).
 - `bun run typecheck`, `bun test`.
 
 ## Architecture
@@ -42,4 +42,8 @@ Snake game, neon/synthwave style, built to feel like a native game (no DOM UI, n
 1. Done: Vite + Phaser core, scenes, HUD, modes (wrap/classic), 3 difficulties, high scores.
 2. Done: procedural Web Audio (SFX + music), settings menu (volume, effects toggles, reduced motion, language, touch D-pad), swipe controls.
 3. Done: power-ups (golden x5, slow-mo 5 s, ghost 5 s, scissors cut 1/3), item every 5-8 foods lasting 7 s, combo up to x5 within 3 s, obstacles every 10 foods (level).
-4. PWA with offline cache (`vite-plugin-pwa`), GitHub Actions deploy to Pages, remove committed `docs/`.
+4. Done: PWA with offline precache (`vite-plugin-pwa`, auto update), GitHub Actions deploy to Pages (`.github/workflows/deploy.yml`; PRs only build and test), committed `docs/` removed.
+
+## Deploy
+
+- Pages source is "GitHub Actions". Pushing to `master` tests, builds and publishes `dist/`. Never commit build output.
