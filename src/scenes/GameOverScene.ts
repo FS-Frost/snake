@@ -30,7 +30,7 @@ export class GameOverScene extends Phaser.Scene {
 
         const seconds = Math.floor(data.timeMs / 1000);
         const time = `${Math.floor(seconds / 60)}:${(seconds % 60).toString().padStart(2, "0")}`;
-        const stats = `${t("best")} ${data.best}   ·   ${t("length")} ${data.length}   ·   ${t("time")} ${time}`;
+        const stats = `${t("best")} ${data.best}  ·  ${t("level")} ${data.level}  ·  ${t("length")} ${data.length}  ·  ${t("time")} ${time}`;
         neonText(this, WIDTH / 2, HEIGHT * 0.45, stats, { size: 16, color: CSS.dim, glow: 0, weight: 400 });
 
         if (data.isRecord) {

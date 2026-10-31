@@ -10,6 +10,14 @@ export type Mode = "classic" | "wrap";
 
 export type Difficulty = "easy" | "normal" | "hard";
 
+/** Special pickups. golden: big points. slowmo/ghost: timed effects. scissors: cuts the tail. */
+export type ItemType = "golden" | "slowmo" | "ghost" | "scissors";
+
+/** Item types that leave a timed effect running. */
+export type EffectType = "slowmo" | "ghost";
+
+export const ITEM_TYPES: readonly ItemType[] = ["golden", "slowmo", "ghost", "scissors"];
+
 export const MODES: readonly Mode[] = ["wrap", "classic"];
 export const DIFFICULTIES: readonly Difficulty[] = ["easy", "normal", "hard"];
 

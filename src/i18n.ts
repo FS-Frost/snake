@@ -1,4 +1,4 @@
-import type { Difficulty, Mode } from "./core/types";
+import type { Difficulty, ItemType, Mode } from "./core/types";
 import { getSettings } from "./storage";
 
 export type Language = "en" | "es";
@@ -47,6 +47,12 @@ const en = {
     tapToStart: "TAP OR PRESS ANY KEY",
     "language.en": "ENGLISH",
     "language.es": "ESPAÑOL",
+    level: "LEVEL",
+    combo: "COMBO",
+    "item.golden": "GOLD",
+    "item.slowmo": "SLOW-MO",
+    "item.ghost": "GHOST",
+    "item.scissors": "SCISSORS",
 };
 
 type Key = keyof typeof en;
@@ -95,6 +101,12 @@ const es: Record<Key, string> = {
     tapToStart: "TOCA O PULSA UNA TECLA",
     "language.en": "ENGLISH",
     "language.es": "ESPAÑOL",
+    level: "NIVEL",
+    combo: "COMBO",
+    "item.golden": "ORO",
+    "item.slowmo": "CÁMARA LENTA",
+    "item.ghost": "FANTASMA",
+    "item.scissors": "TIJERAS",
 };
 
 const dictionaries: Record<Language, Record<Key, string>> = { en, es };
@@ -119,4 +131,8 @@ export function modeLabel(mode: Mode): string {
 
 export function difficultyLabel(difficulty: Difficulty): string {
     return t(`difficulty.${difficulty}`);
+}
+
+export function itemLabel(item: ItemType): string {
+    return t(`item.${item}`);
 }

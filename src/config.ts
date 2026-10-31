@@ -36,6 +36,7 @@ export const COLORS = {
     magenta: 0xff2a6d,
     yellow: 0xfff275,
     purple: 0x9d4edd,
+    orange: 0xff8c42,
     white: 0xf4f1ff,
     dim: 0x8f84c4,
 } as const;

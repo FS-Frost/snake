@@ -1,3 +1,4 @@
+import type { ItemType } from "../core/types";
 import { getSettings } from "../storage";
 
 /**
@@ -40,6 +41,7 @@ class AudioEngine {
     private timer: number | undefined;
     /** 0..1, raises tempo during play. */
     private intensity = 0;
+    private tempoScale = 1;
 
     /** Browsers only allow audio after a user gesture: call this from the first input. */
     unlock(): void {
@@ -152,6 +154,59 @@ class AudioEngine {
         this.tone({ type: "sawtooth", freq: midiToHz(84), duration: 0.6, gain: 0.1, delay: 0.45, cutoff: 3500 });
     }
 
+    /** Rising sweep, flavored per item. */
+    powerUp(kind: ItemType): void {
+        const ctx = this.ctx;
+        if (!ctx || ctx.state !== "running") {
+            return;
+        }
+
+        const t = ctx.currentTime;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = kind === "ghost" ? "sine" : kind === "scissors" ? "sawtooth" : "square";
+        const [from, to] = kind === "slowmo" ? [900, 220] : [300, 1400];
+        osc.frequency.setValueAtTime(from, t);
+        osc.frequency.exponentialRampToValueAtTime(to, t + 0.3);
+        gain.gain.setValueAtTime(0.14, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+        osc.connect(gain).connect(this.sfxGain);
+        osc.start(t);
+        osc.stop(t + 0.37);
+
+        if (kind === "golden") {
+            this.fanfare();
+        } else if (kind === "scissors") {
+            this.noiseBurst({ duration: 0.15, gain: 0.3, from: 8000, to: 2000 });
+        }
+    }
+
+    itemSpawn(): void {
+        this.tone({ type: "triangle", freq: 1320, duration: 0.12, gain: 0.18 });
+        this.tone({ type: "triangle", freq: 1760, duration: 0.18, gain: 0.14, delay: 0.08 });
+    }
+
+    itemExpire(): void {
+        this.tone({ type: "triangle", freq: 600, duration: 0.1, gain: 0.12 });
+        this.tone({ type: "triangle", freq: 400, duration: 0.14, gain: 0.1, delay: 0.08 });
+    }
+
+    effectEnd(): void {
+        this.tone({ type: "sine", freq: 700, duration: 0.08, gain: 0.15 });
+        this.tone({ type: "sine", freq: 500, duration: 0.12, gain: 0.15, delay: 0.07 });
+    }
+
+    levelUp(): void {
+        [57, 60, 64, 69].forEach((midi, i) => {
+            this.tone({ type: "sawtooth", freq: midiToHz(midi + 12), duration: 0.14, gain: 0.1, delay: i * 0.07, cutoff: 3000 });
+        });
+    }
+
+    /** Music drags while slow-mo runs. */
+    setSlowmo(active: boolean): void {
+        this.tempoScale = active ? 0.7 : 1;
+    }
+
     pause(): void {
         this.tone({ type: "triangle", freq: 520, duration: 0.08, gain: 0.25 });
         this.tone({ type: "triangle", freq: 390, duration: 0.12, gain: 0.25, delay: 0.07 });
@@ -227,7 +282,7 @@ class AudioEngine {
                 this.playStep(this.step, this.nextStepTime);
             }
 
-            const bpm = this.section === "game" ? 108 + this.intensity * 26 : 96;
+            const bpm = (this.section === "game" ? 108 + this.intensity * 26 : 96) * this.tempoScale;
             this.nextStepTime += 60 / bpm / 4;
             this.step = (this.step + 1) % (STEPS_PER_BAR * PROGRESSION.length);
         }

@@ -16,7 +16,8 @@ Snake game, neon/synthwave style, built to feel like a native game (no DOM UI, n
 
 ## Architecture
 
-- `src/core/`: pure game rules, no Phaser imports. `SnakeGame` advances one tick per `step()`; buffers turns (`queueTurn`); food spawns from the list of free cells. Unit tested in `tests/`.
+- `src/core/`: pure game rules, no Phaser imports. `SnakeGame` advances one tick per `step()` and its timers (item expiry, effects, combo window) with `advance(ms)`, called only while playing so pause freezes them. Buffers turns (`queueTurn`); food, items and obstacles spawn from the list of free cells. Tunables in `RULES`. Unit tested in `tests/`.
+- `src/scenes/GameViews.ts`: `ItemView`, `ObstacleView`, `PowerHud` (combo column, effect bars, slow-mo tint) used by `GameScene`.
 - `src/scenes/`: `Boot` (procedural textures) → `Menu` → `Game`. `Pause`, `GameOver` and `Settings` are overlay scenes launched on top of a paused caller.
 - `src/audio/Audio.ts`: singleton `audio`. All music and SFX synthesized with Web Audio (no files). Unlocked by the first input on the "press any key" title (browser autoplay rules). Music sections: `menu`, `game` (tempo follows intensity), `off`; muffled with a lowpass while paused.
 - `src/ui/TouchControls.ts`: swipe (always on touch devices) + optional D-pad.
@@ -40,5 +41,5 @@ Snake game, neon/synthwave style, built to feel like a native game (no DOM UI, n
 
 1. Done: Vite + Phaser core, scenes, HUD, modes (wrap/classic), 3 difficulties, high scores.
 2. Done: procedural Web Audio (SFX + music), settings menu (volume, effects toggles, reduced motion, language, touch D-pad), swipe controls.
-3. Power-ups: golden food, slow-mo, combo multiplier, ghost, scissors, obstacles per level.
+3. Done: power-ups (golden x5, slow-mo 5 s, ghost 5 s, scissors cut 1/3), item every 5-8 foods lasting 7 s, combo up to x5 within 3 s, obstacles every 10 foods (level).
 4. PWA with offline cache (`vite-plugin-pwa`), GitHub Actions deploy to Pages, remove committed `docs/`.

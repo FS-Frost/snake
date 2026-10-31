@@ -15,13 +15,14 @@ import {
 } from "../config";
 import { audio } from "../audio/Audio";
 import { SPEED_CURVES, ticksPerSecond } from "../core/difficulty";
-import { SnakeGame } from "../core/SnakeGame";
+import { type AdvanceResult, SnakeGame, type StepResult } from "../core/SnakeGame";
 import { type Cell, DIRECTION_VECTORS, type Direction } from "../core/types";
-import { difficultyLabel, modeLabel, t } from "../i18n";
+import { difficultyLabel, itemLabel, modeLabel, t } from "../i18n";
 import { getHighScore, getSettings, submitScore } from "../storage";
 import { TEXTURES } from "../ui/Background";
 import { applyNeonPost, fadeIn, flash, neonText, shake, vibrate } from "../ui/neon";
 import { TouchControls } from "../ui/TouchControls";
+import { cellX, cellY, ITEM_COLORS, ItemView, ObstacleView, PowerHud } from "./GameViews";
 import type { GameSettings } from "./MenuScene";
 
 type Phase = "countdown" | "playing" | "dying" | "over";
@@ -33,6 +34,7 @@ export interface GameOverData {
     isRecord: boolean;
     won: boolean;
     length: number;
+    level: number;
     timeMs: number;
 }
 
@@ -52,9 +54,6 @@ const MAX_FRAME_MS = 250;
 const COUNTDOWN_STEP_MS = 550;
 const SEGMENT_PADDING = 3;
 
-const cellX = (x: number) => BOARD_X + x * CELL + CELL / 2;
-const cellY = (y: number) => BOARD_Y + y * CELL + CELL / 2;
-
 export class GameScene extends Phaser.Scene {
     private settings!: GameSettings;
     private logic!: SnakeGame;
@@ -70,6 +69,9 @@ export class GameScene extends Phaser.Scene {
     private timeText!: Phaser.GameObjects.Text;
     private bestText!: Phaser.GameObjects.Text;
     private speedText!: Phaser.GameObjects.Text;
+    private itemView!: ItemView;
+    private obstacleView!: ObstacleView;
+    private powerHud!: PowerHud;
 
     private foodSpawnedAt = 0;
     private lastFood: Cell | null = null;
@@ -97,7 +99,10 @@ export class GameScene extends Phaser.Scene {
 
         this.add.image(0, 0, TEXTURES.sky).setOrigin(0).setDisplaySize(WIDTH, HEIGHT);
         this.drawBoard();
+        this.powerHud = new PowerHud(this, BOARD_X + 196, 82, BOARD_Y + BOARD_H + 32);
+        this.obstacleView = new ObstacleView(this);
         this.foodGfx = this.add.graphics();
+        this.itemView = new ItemView(this);
         this.snakeGfx = this.add.graphics();
         this.sparks = this.add.particles(0, 0, TEXTURES.spark, {
             speed: { min: 80, max: 260 },
@@ -124,6 +129,7 @@ export class GameScene extends Phaser.Scene {
         audio.setMusic("game");
         audio.setIntensity(0);
         audio.setMuffled(false);
+        audio.setSlowmo(false);
         this.runCountdown();
     }
 
@@ -132,6 +138,7 @@ export class GameScene extends Phaser.Scene {
             const frame = Math.min(delta, MAX_FRAME_MS);
             this.elapsedMs += frame;
             this.accumulator += frame;
+            this.handleAdvance(this.logic.advance(frame));
 
             while (this.phase === "playing" && this.accumulator >= this.logic.tickMs) {
                 this.accumulator -= this.logic.tickMs;
@@ -142,6 +149,8 @@ export class GameScene extends Phaser.Scene {
         const alpha = this.phase === "playing" ? this.accumulator / this.logic.tickMs : 1;
         this.renderSnake(alpha);
         this.renderFood();
+        this.itemView.render(this.phase === "over" ? null : this.logic.item, this.logic.clock);
+        this.powerHud.update(this.logic);
         this.updateHud();
     }
 
@@ -149,7 +158,19 @@ export class GameScene extends Phaser.Scene {
         const result = this.logic.step();
 
         if (result.ate) {
-            this.onEat();
+            this.onEat(result);
+        }
+
+        if (result.picked) {
+            this.onPick(result);
+        }
+
+        if (result.itemSpawned) {
+            audio.itemSpawn();
+        }
+
+        if (result.obstaclesAdded.length > 0) {
+            this.onLevelUp(result.obstaclesAdded);
         }
 
         if (result.died) {
@@ -247,7 +268,35 @@ export class GameScene extends Phaser.Scene {
         });
     }
 
-    private onEat(): void {
+    private handleAdvance(result: AdvanceResult): void {
+        if (result.itemExpired) {
+            this.sparks.setParticleTint(COLORS.dim);
+            this.sparks.explode(10, cellX(result.itemExpired.x), cellY(result.itemExpired.y));
+            audio.itemExpire();
+        }
+
+        for (const effect of result.effectsEnded) {
+            audio.effectEnd();
+            if (effect === "slowmo") {
+                audio.setSlowmo(false);
+            }
+        }
+    }
+
+    /** Floating text that rises and fades. */
+    private popup(x: number, y: number, label: string, color: string, size = 20): void {
+        const text = neonText(this, x, y - 10, label, { size, color, glow: 10 });
+        this.tweens.add({
+            targets: text,
+            y: y - 54,
+            alpha: 0,
+            duration: 750,
+            ease: "Cubic.Out",
+            onComplete: () => text.destroy(),
+        });
+    }
+
+    private onEat(result: StepResult): void {
         const head = this.logic.head;
         const x = cellX(head.x);
         const y = cellY(head.y);
@@ -257,22 +306,69 @@ export class GameScene extends Phaser.Scene {
         this.sparks.setParticleTint(COLORS.yellow);
         this.sparks.explode(6, x, y);
 
-        const points = SPEED_CURVES[this.settings.difficulty].points;
-        const popup = neonText(this, x, y - 10, `+${points}`, { size: 20, color: CSS.yellow, glow: 10 });
-        this.tweens.add({
-            targets: popup,
-            y: y - 50,
-            alpha: 0,
-            duration: 650,
-            ease: "Cubic.Out",
-            onComplete: () => popup.destroy(),
-        });
+        this.popup(x, y, `+${result.points}`, CSS.yellow, this.logic.combo > 1 ? 24 : 20);
 
         this.tweens.add({ targets: this.scoreText, scale: 1.25, duration: 70, yoyo: true });
         shake(this, 80, 0.002);
         vibrate(12);
         audio.eat(this.logic.foodsEaten);
         audio.setIntensity(this.logic.foodsEaten / 30);
+    }
+
+    private onPick(result: StepResult): void {
+        const type = result.picked!;
+        const head = this.logic.head;
+        const x = cellX(head.x);
+        const y = cellY(head.y);
+        const color = ITEM_COLORS[type];
+
+        this.sparks.setParticleTint(color);
+        this.sparks.explode(type === "golden" ? 40 : 24, x, y);
+        audio.powerUp(type);
+        vibrate(20);
+
+        const css = `#${color.toString(16).padStart(6, "0")}`;
+        this.popup(x, y - 18, itemLabel(type), css, 22);
+        this.popup(x, y + 14, `+${result.points}`, CSS.yellow);
+
+        switch (type) {
+            case "golden":
+                flash(this, 120, COLORS.yellow);
+                shake(this, 120, 0.004);
+                break;
+            case "slowmo":
+                audio.setSlowmo(true);
+                break;
+            case "scissors":
+                // Severed tail pieces burst where they were.
+                result.cut.forEach((cell, index) => {
+                    this.time.delayedCall(index * 30, () => {
+                        this.sparks.setParticleTint(COLORS.purple);
+                        this.sparks.explode(8, cellX(cell.x), cellY(cell.y));
+                    });
+                });
+                break;
+        }
+    }
+
+    private onLevelUp(cells: Cell[]): void {
+        audio.levelUp();
+        this.obstacleView.add(cells);
+
+        const banner = neonText(this, WIDTH / 2, BOARD_Y + BOARD_H * 0.3, `${t("level")} ${this.logic.level}`, {
+            size: 56,
+            weight: 900,
+            color: CSS.magenta,
+            glow: 20,
+        });
+        banner.setScale(0.4).setAlpha(0);
+        this.tweens.chain({
+            targets: banner,
+            tweens: [
+                { scale: 1, alpha: 1, duration: 260, ease: "Back.Out" },
+                { alpha: 0, y: banner.y - 30, delay: 700, duration: 300, onComplete: () => banner.destroy() },
+            ],
+        });
     }
 
     private onDeath(): void {
@@ -282,6 +378,7 @@ export class GameScene extends Phaser.Scene {
         vibrate([60, 40, 120]);
         audio.die();
         audio.setMusic("off");
+        audio.setSlowmo(false);
 
         // Blow the body up from head to tail; long snakes speed up so it never drags.
         const segments = this.logic.snake.length;
@@ -326,6 +423,7 @@ export class GameScene extends Phaser.Scene {
             isRecord,
             won,
             length: this.logic.snake.length,
+            level: this.logic.level,
             timeMs: this.elapsedMs,
         };
 
@@ -378,6 +476,8 @@ export class GameScene extends Phaser.Scene {
         const { snake, previousSnake } = this.logic;
         const dying = this.phase === "dying" || this.phase === "over";
         g.clear();
+        // Ghost: translucent and flickering while it can pass through itself.
+        g.setAlpha(this.logic.isActive("ghost") && !dying ? 0.45 + Math.sin(this.time.now / 70) * 0.15 : 1);
 
         if (snake.length === 0) {
             return;
