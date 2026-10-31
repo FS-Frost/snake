@@ -26,6 +26,8 @@ Snake game, neon/synthwave style, built to feel like a native game (no DOM UI, n
 - `src/i18n.ts`: every user-visible string goes through `t()`; keep `en` and `es` in sync.
 - `src/storage.ts`: localStorage wrapped in try/catch; the game must run without storage. Holds high scores and `Settings` (volumes, bloom/shake/flash toggles, touch scheme, language). Shake/flash default off under `prefers-reduced-motion`.
 - Use `shake`, `flash`, `vibrate` from `src/ui/neon.ts`, never the camera methods directly, so settings are respected.
+- Bloom (Phaser 4 filters) renders black on some Android GPUs. `BootScene` probes it once per launch (gray square below the bloom threshold, `readPixels`) and `isBloomAvailable` gates it; the Glow setting shows N/A there. Always add bloom through `applyNeonPost`/`addBloom`.
+- Diagnostics: `?debug=1` (DOM report: GPU, GL, probe result, fps, scenes), `?bloom=0`, `?renderer=canvas` (`src/debug.ts`).
 - No image/audio files: textures are generated in code.
 
 ## Conventions

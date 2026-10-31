@@ -41,21 +41,38 @@ export function neonText(
 
 const BLOOM_KEY = "bloom";
 
-/** Bloom on the camera so every bright pixel glows. WebGL only; Canvas renderer skips it. */
-export function applyNeonPost(scene: Phaser.Scene): void {
-    if (scene.renderer.type !== Phaser.WEBGL || DEBUG.noBloom) {
-        return;
-    }
+/** Set by the Boot probe: some mobile GPUs render the bloom filters as a black screen. */
+let bloomWorks = true;
 
+export function setBloomWorks(works: boolean): void {
+    bloomWorks = works;
+}
+
+/** False on Canvas, with ?bloom=0, or when the GPU failed the boot probe. The setting cannot override it. */
+export function isBloomAvailable(game: Phaser.Game): boolean {
+    return game.renderer.type === Phaser.WEBGL && !DEBUG.noBloom && bloomWorks;
+}
+
+export function addBloom(camera: Phaser.Cameras.Scene2D.Camera): Phaser.Filters.ParallelFilters {
     // High threshold: only saturated neon blooms, text keeps legible edges.
-    const [bloom] = Phaser.Actions.AddEffectBloom(scene.cameras.main, {
+    const [bloom] = Phaser.Actions.AddEffectBloom(camera, {
         threshold: 0.62,
         blurRadius: 2,
         blurSteps: 3,
         blendAmount: 0.7,
     });
-    bloom.parallelFilters.active = getSettings().bloom;
-    scene.data.set(BLOOM_KEY, bloom.parallelFilters);
+    return bloom.parallelFilters;
+}
+
+/** Bloom on the camera so every bright pixel glows. */
+export function applyNeonPost(scene: Phaser.Scene): void {
+    if (!isBloomAvailable(scene.game)) {
+        return;
+    }
+
+    const filter = addBloom(scene.cameras.main);
+    filter.active = getSettings().bloom;
+    scene.data.set(BLOOM_KEY, filter);
 }
 
 /** Applies the bloom setting to every running scene, so the toggle is visible immediately. */

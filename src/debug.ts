@@ -18,6 +18,12 @@ export const DEBUG = {
 const lines: string[] = [];
 let panel: HTMLPreElement | null = null;
 
+export function debugLog(line: string): void {
+    if (DEBUG.overlay) {
+        log(line);
+    }
+}
+
 function log(line: string): void {
     lines.push(line);
     if (panel) {

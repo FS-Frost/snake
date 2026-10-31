@@ -4,7 +4,7 @@ import { CSS, HEIGHT, SCENES, WIDTH } from "../config";
 import { getLanguage, type Language, setLanguage, t } from "../i18n";
 import { getSettings, type TouchScheme, updateSettings } from "../storage";
 import { type MenuItem, MenuList } from "../ui/MenuList";
-import { applyNeonPost, neonText, refreshNeonPost, shake } from "../ui/neon";
+import { applyNeonPost, isBloomAvailable, neonText, refreshNeonPost, shake } from "../ui/neon";
 import { createBackdrop } from "../ui/overlay";
 
 export interface SettingsSceneData {
@@ -50,8 +50,12 @@ export class SettingsScene extends Phaser.Scene {
                 },
             },
             {
-                label: () => `${t("bloom")}: ${onOff(getSettings().bloom)}`,
+                // Locked on devices where bloom renders black, so it can never be switched back on there.
+                label: () => `${t("bloom")}: ${isBloomAvailable(this.game) ? onOff(getSettings().bloom) : t("unavailable")}`,
                 onChange: () => {
+                    if (!isBloomAvailable(this.game)) {
+                        return;
+                    }
                     updateSettings({ bloom: !getSettings().bloom });
                     refreshNeonPost(this.game);
                 },
