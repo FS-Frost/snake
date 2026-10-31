@@ -1,56 +1,50 @@
-import Game from "./game";
-import Static from "./static";
+import "@fontsource/orbitron/latin-400.css";
+import "@fontsource/orbitron/latin-500.css";
+import "@fontsource/orbitron/latin-700.css";
+import "@fontsource/orbitron/latin-900.css";
+import "./style.css";
+import Phaser from "phaser";
+import { COLORS, HEIGHT, WIDTH } from "./config";
+import { BootScene } from "./scenes/BootScene";
+import { GameOverScene } from "./scenes/GameOverScene";
+import { GameScene } from "./scenes/GameScene";
+import { MenuScene } from "./scenes/MenuScene";
+import { PauseScene } from "./scenes/PauseScene";
+import { SettingsScene } from "./scenes/SettingsScene";
 
-let game: Game;
-let btnPause: p5.Element;
-let _p: p5;
-
-const sketch = (p: p5) => {
-    p.setup = () => {
-        _p = p;
-        Static.setP5(p);
-        p.createCanvas(Game.WIDTH, Game.HEIGHT);
-        p.background(220);
-        game = new Game(handleGameOver);
-
-        btnPause = p.select("#pause");
-        btnPause.mouseClicked(togglePause);
-    };
-
-    p.draw = () => {
-        game.update();
-        game.show();
-    };
-};
-
-function togglePause() {
-    if (game.isPaused) {
-        btnPause.html("Pause");
-        game.isPaused = false;
-        _p.loop();
-        return;
+async function loadFonts(): Promise<void> {
+    // Phaser rasterizes text to canvas once; drawing before the font is ready bakes in the fallback.
+    try {
+        await Promise.all([400, 500, 700, 900].map((weight) => document.fonts.load(`${weight} 32px Orbitron`)));
+    } catch {
+        // Fallback fonts are acceptable.
     }
-
-    if (game.isOver) {
-        game = new Game(handleGameOver);
-        btnPause.html("Pause");
-        _p.loop();
-        return;
-    }
-
-    btnPause.html("Resume");
-    game.isPaused = true;
-    _p.noLoop();
 }
 
-function handleGameOver() {
-    game.isOver = true;
-    btnPause.html("Restart");
-    _p.noLoop();
-    const msg = "GAME OVER";
-    console.log(msg);
-    alert(msg);
-}
+await loadFonts();
 
-new p5(sketch, document.querySelector("#game"));
-console.log("main");
+const game = new Phaser.Game({
+    type: Phaser.AUTO,
+    parent: "game",
+    width: WIDTH,
+    height: HEIGHT,
+    backgroundColor: COLORS.bgTop,
+    scale: {
+        mode: Phaser.Scale.FIT,
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+    },
+    render: {
+        antialias: true,
+        powerPreference: "high-performance",
+    },
+    input: {
+        activePointers: 2,
+    },
+    disableContextMenu: true,
+    scene: [BootScene, MenuScene, GameScene, PauseScene, GameOverScene, SettingsScene],
+});
+
+if (import.meta.env.DEV) {
+    // Handle for debugging and automated checks from the browser console.
+    (window as unknown as { game: Phaser.Game }).game = game;
+}
