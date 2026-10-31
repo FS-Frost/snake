@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { FONT } from "../config";
+import { DEBUG } from "../debug";
 import { getSettings } from "../storage";
 
 export interface NeonTextOptions {
@@ -42,7 +43,7 @@ const BLOOM_KEY = "bloom";
 
 /** Bloom on the camera so every bright pixel glows. WebGL only; Canvas renderer skips it. */
 export function applyNeonPost(scene: Phaser.Scene): void {
-    if (scene.renderer.type !== Phaser.WEBGL) {
+    if (scene.renderer.type !== Phaser.WEBGL || DEBUG.noBloom) {
         return;
     }
 
