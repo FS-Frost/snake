@@ -5,6 +5,7 @@ import "@fontsource/orbitron/latin-900.css";
 import "./style.css";
 import Phaser from "phaser";
 import { COLORS, HEIGHT, WIDTH } from "./config";
+import { DEBUG, installDebugOverlay, reportRenderer } from "./debug";
 import { BootScene } from "./scenes/BootScene";
 import { GameOverScene } from "./scenes/GameOverScene";
 import { GameScene } from "./scenes/GameScene";
@@ -21,10 +22,11 @@ async function loadFonts(): Promise<void> {
     }
 }
 
+installDebugOverlay();
 await loadFonts();
 
 const game = new Phaser.Game({
-    type: Phaser.AUTO,
+    type: DEBUG.forceCanvas ? Phaser.CANVAS : Phaser.AUTO,
     parent: "game",
     width: WIDTH,
     height: HEIGHT,
@@ -43,6 +45,8 @@ const game = new Phaser.Game({
     disableContextMenu: true,
     scene: [BootScene, MenuScene, GameScene, PauseScene, GameOverScene, SettingsScene],
 });
+
+game.events.once(Phaser.Core.Events.READY, () => reportRenderer(game));
 
 if (import.meta.env.DEV) {
     // Handle for debugging and automated checks from the browser console.
