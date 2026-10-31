@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { FONT } from "../config";
+import { getSettings } from "../storage";
 
 export interface NeonTextOptions {
     size?: number;
@@ -37,6 +38,8 @@ export function neonText(
     return text.setOrigin(originX, 0.5);
 }
 
+const BLOOM_KEY = "bloom";
+
 /** Bloom on the camera so every bright pixel glows. WebGL only; Canvas renderer skips it. */
 export function applyNeonPost(scene: Phaser.Scene): void {
     if (scene.renderer.type !== Phaser.WEBGL) {
@@ -44,12 +47,45 @@ export function applyNeonPost(scene: Phaser.Scene): void {
     }
 
     // High threshold: only saturated neon blooms, text keeps legible edges.
-    Phaser.Actions.AddEffectBloom(scene.cameras.main, {
+    const [bloom] = Phaser.Actions.AddEffectBloom(scene.cameras.main, {
         threshold: 0.62,
         blurRadius: 2,
         blurSteps: 3,
         blendAmount: 0.7,
     });
+    bloom.parallelFilters.active = getSettings().bloom;
+    scene.data.set(BLOOM_KEY, bloom.parallelFilters);
+}
+
+/** Applies the bloom setting to every running scene, so the toggle is visible immediately. */
+export function refreshNeonPost(game: Phaser.Game): void {
+    for (const scene of game.scene.getScenes(false)) {
+        const filter = scene.data?.get(BLOOM_KEY) as Phaser.Filters.ParallelFilters | undefined;
+
+        if (filter) {
+            filter.active = getSettings().bloom;
+        }
+    }
+}
+
+export function shake(scene: Phaser.Scene, duration: number, intensity: number): void {
+    if (getSettings().shake) {
+        scene.cameras.main.shake(duration, intensity);
+    }
+}
+
+export function flash(scene: Phaser.Scene, duration: number, color: number): void {
+    if (getSettings().flash) {
+        const { r, g, b } = Phaser.Display.Color.IntegerToRGB(color);
+        scene.cameras.main.flash(duration, r, g, b);
+    }
+}
+
+/** Short vibration on phones; tied to the shake setting since both are physical feedback. */
+export function vibrate(pattern: number | number[]): void {
+    if (getSettings().shake) {
+        navigator.vibrate?.(pattern);
+    }
 }
 
 const FADE_MS = 220;

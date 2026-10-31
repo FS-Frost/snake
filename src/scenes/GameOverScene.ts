@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { audio } from "../audio/Audio";
 import { CSS, HEIGHT, SCENES, WIDTH } from "../config";
 import { t } from "../i18n";
 import { MenuList } from "../ui/MenuList";
@@ -40,7 +41,14 @@ export class GameOverScene extends Phaser.Scene {
                 glow: 20,
             });
             badge.setScale(0).setAngle(-6);
-            this.tweens.add({ targets: badge, scale: 1, delay: 1300, duration: 400, ease: "Back.Out" });
+            this.tweens.add({
+                targets: badge,
+                scale: 1,
+                delay: 1300,
+                duration: 400,
+                ease: "Back.Out",
+                onStart: () => audio.fanfare(),
+            });
             this.tweens.add({ targets: badge, alpha: 0.55, delay: 1700, duration: 450, yoyo: true, repeat: -1 });
         }
 
@@ -64,6 +72,9 @@ export class GameOverScene extends Phaser.Scene {
         // Blocks accidental instant retry from keys still held when the snake died.
         menu.setEnabled(false);
         this.time.delayedCall(600, () => menu.setEnabled(true));
+
+        // Music comes back calm after the crash.
+        this.time.delayedCall(1800, () => audio.setMusic("menu"));
 
         applyNeonPost(this);
     }

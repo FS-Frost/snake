@@ -1,6 +1,20 @@
+const BASE_HEIGHT = 860;
+
+/**
+ * Touch device held in portrait: the canvas gets taller and the extra strip below the board
+ * hosts the touch controls instead of covering the board. Evaluated once at startup.
+ */
+export const TOUCH_LAYOUT =
+    (window.matchMedia?.("(pointer: coarse)").matches ?? false) && window.innerHeight > window.innerWidth;
+
 /** Logical resolution. The Scale Manager fits it to the screen with letterbox. */
 export const WIDTH = 720;
-export const HEIGHT = 860;
+/** On portrait phones, match the screen aspect so there are no letterbox bars. */
+export const HEIGHT = TOUCH_LAYOUT
+    ? Math.round(Math.min(1600, Math.max(1100, (WIDTH * window.innerHeight) / window.innerWidth)))
+    : BASE_HEIGHT;
+/** Vertical center of the touch control strip (only meaningful with TOUCH_LAYOUT). */
+export const CONTROLS_Y = BASE_HEIGHT + (HEIGHT - BASE_HEIGHT) / 2;
 
 export const GRID_COLS = 24;
 export const GRID_ROWS = 24;
@@ -41,4 +55,5 @@ export const SCENES = {
     game: "Game",
     pause: "Pause",
     gameOver: "GameOver",
+    settings: "Settings",
 } as const;

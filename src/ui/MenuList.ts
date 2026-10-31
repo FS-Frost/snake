@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { audio } from "../audio/Audio";
 import { CSS } from "../config";
 import { neonText } from "./neon";
 
@@ -13,8 +14,10 @@ export interface MenuItem {
 export interface MenuListOptions {
     spacing?: number;
     size?: number;
-    /** Called whenever focus moves or a value changes (sound hooks, dependent labels). */
+    /** Called whenever focus moves or a value changes (dependent labels). */
     onUpdate?: () => void;
+    /** ESC / Backspace. */
+    onBack?: () => void;
 }
 
 /**
@@ -25,6 +28,7 @@ export class MenuList {
     private readonly items: MenuItem[];
     private readonly texts: Phaser.GameObjects.Text[];
     private readonly onUpdate?: () => void;
+    private readonly onBack?: () => void;
     private focus = 0;
     private enabled = true;
 
@@ -33,14 +37,16 @@ export class MenuList {
         this.scene = scene;
         this.items = items;
         this.onUpdate = options.onUpdate;
+        this.onBack = options.onBack;
 
         this.texts = items.map((item, index) => {
             const text = neonText(scene, x, y + index * spacing, item.label(), { size, glow: 10 });
             text.setInteractive({ useHandCursor: true });
             text.on(Phaser.Input.Events.GAMEOBJECT_POINTER_OVER, () => this.setFocus(index));
-            text.on(Phaser.Input.Events.GAMEOBJECT_POINTER_UP, () => {
+            text.on(Phaser.Input.Events.GAMEOBJECT_POINTER_UP, (_pointer: Phaser.Input.Pointer, localX: number) => {
                 this.setFocus(index);
-                this.activate(1);
+                // On option items the left half decreases and the right half increases, like the "<" ">" arrows.
+                this.activate(item.onChange && localX < text.width / 2 ? -1 : 1);
             });
             return text;
         });
@@ -88,15 +94,23 @@ export class MenuList {
             case "Space":
                 this.activate(1);
                 break;
+            case "Escape":
+            case "Backspace":
+                if (this.onBack) {
+                    audio.uiBack();
+                    this.onBack();
+                }
+                break;
         }
     }
 
     private setFocus(index: number): void {
-        if (index === this.focus) {
+        if (index === this.focus || !this.enabled) {
             return;
         }
 
         this.focus = index;
+        audio.uiMove();
         this.render();
         this.onUpdate?.();
     }
@@ -109,6 +123,7 @@ export class MenuList {
         }
 
         item.onChange(delta);
+        audio.uiMove();
         this.render();
         this.onUpdate?.();
 
@@ -130,6 +145,7 @@ export class MenuList {
 
         const text = this.texts[this.focus];
         this.scene.tweens.add({ targets: text, scale: 1.15, duration: 80, yoyo: true });
+        audio.uiSelect();
         item.onSelect?.();
     }
 

@@ -13,13 +13,15 @@ import {
     SCENES,
     WIDTH,
 } from "../config";
+import { audio } from "../audio/Audio";
 import { SPEED_CURVES, ticksPerSecond } from "../core/difficulty";
 import { SnakeGame } from "../core/SnakeGame";
 import { type Cell, DIRECTION_VECTORS, type Direction } from "../core/types";
 import { difficultyLabel, modeLabel, t } from "../i18n";
-import { getHighScore, submitScore } from "../storage";
+import { getHighScore, getSettings, submitScore } from "../storage";
 import { TEXTURES } from "../ui/Background";
-import { applyNeonPost, fadeIn, neonText } from "../ui/neon";
+import { applyNeonPost, fadeIn, flash, neonText, shake, vibrate } from "../ui/neon";
+import { TouchControls } from "../ui/TouchControls";
 import type { GameSettings } from "./MenuScene";
 
 type Phase = "countdown" | "playing" | "dying" | "over";
@@ -106,6 +108,7 @@ export class GameScene extends Phaser.Scene {
             emitting: false,
         });
         this.createHud();
+        new TouchControls(this, (direction) => this.turn(direction));
 
         this.input.keyboard?.on(Phaser.Input.Keyboard.Events.ANY_KEY_DOWN, this.handleKey, this);
         this.game.events.on(Phaser.Core.Events.BLUR, this.autoPause, this);
@@ -118,6 +121,9 @@ export class GameScene extends Phaser.Scene {
 
         applyNeonPost(this);
         fadeIn(this);
+        audio.setMusic("game");
+        audio.setIntensity(0);
+        audio.setMuffled(false);
         this.runCountdown();
     }
 
@@ -158,13 +164,19 @@ export class GameScene extends Phaser.Scene {
     private handleKey(event: KeyboardEvent): void {
         const direction = KEY_DIRECTIONS[event.code];
 
-        if (direction && (this.phase === "playing" || this.phase === "countdown")) {
-            this.logic.queueTurn(direction);
+        if (direction) {
+            this.turn(direction);
             return;
         }
 
         if (event.code === "Escape" || event.code === "KeyP") {
             this.pause();
+        }
+    }
+
+    private turn(direction: Direction): void {
+        if (this.phase === "playing" || this.phase === "countdown") {
+            this.logic.queueTurn(direction);
         }
     }
 
@@ -179,6 +191,8 @@ export class GameScene extends Phaser.Scene {
             return;
         }
 
+        audio.pause();
+        audio.setMuffled(true);
         this.scene.launch(SCENES.pause, this.settings);
         this.scene.pause();
     }
@@ -187,7 +201,9 @@ export class GameScene extends Phaser.Scene {
 
     private runCountdown(): void {
         const labels = ["3", "2", "1", t("go")];
-        const hint = neonText(this, WIDTH / 2, BOARD_Y + BOARD_H * 0.68, t("gameHint"), {
+        const touch = this.sys.game.device.input.touch;
+        const hintText = !touch ? t("gameHint") : getSettings().touch === "swipe" ? t("swipeHint") : "";
+        const hint = neonText(this, WIDTH / 2, BOARD_Y + BOARD_H * 0.68, hintText, {
             size: 16,
             color: CSS.dim,
             glow: 0,
@@ -197,6 +213,7 @@ export class GameScene extends Phaser.Scene {
         labels.forEach((label, index) => {
             this.time.delayedCall(index * COUNTDOWN_STEP_MS, () => {
                 const isLast = index === labels.length - 1;
+                audio.countdown(isLast);
                 const text = neonText(this, WIDTH / 2, BOARD_Y + BOARD_H / 2, label, {
                     size: isLast ? 96 : 120,
                     weight: 900,
@@ -252,14 +269,19 @@ export class GameScene extends Phaser.Scene {
         });
 
         this.tweens.add({ targets: this.scoreText, scale: 1.25, duration: 70, yoyo: true });
-        this.cameras.main.shake(80, 0.002);
+        shake(this, 80, 0.002);
+        vibrate(12);
+        audio.eat(this.logic.foodsEaten);
+        audio.setIntensity(this.logic.foodsEaten / 30);
     }
 
     private onDeath(): void {
         this.phase = "dying";
-        const camera = this.cameras.main;
-        camera.shake(380, 0.014);
-        camera.flash(180, 255, 42, 109);
+        shake(this, 380, 0.014);
+        flash(this, 180, COLORS.magenta);
+        vibrate([60, 40, 120]);
+        audio.die();
+        audio.setMusic("off");
 
         // Blow the body up from head to tail; long snakes speed up so it never drags.
         const segments = this.logic.snake.length;
@@ -280,7 +302,9 @@ export class GameScene extends Phaser.Scene {
 
     private onWin(): void {
         this.phase = "dying";
-        this.cameras.main.flash(400, 255, 242, 117);
+        flash(this, 400, COLORS.yellow);
+        audio.setMusic("off");
+        audio.fanfare();
 
         for (let i = 0; i < 6; i++) {
             this.time.delayedCall(i * 180, () => {

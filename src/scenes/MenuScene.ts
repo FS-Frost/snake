@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { audio } from "../audio/Audio";
 import { COLORS, CSS, HEIGHT, SCENES, WIDTH } from "../config";
 import { DIFFICULTIES, type Difficulty, MODES, type Mode } from "../core/types";
 import { difficultyLabel, modeLabel, t } from "../i18n";
@@ -6,6 +7,7 @@ import { getHighScore, getLastSelection, setLastSelection } from "../storage";
 import { Background } from "../ui/Background";
 import { MenuList } from "../ui/MenuList";
 import { applyNeonPost, fadeIn, neonText, transitionTo } from "../ui/neon";
+import type { SettingsSceneData } from "./SettingsScene";
 
 export interface GameSettings {
     mode: Mode;
@@ -16,6 +18,9 @@ function cycle<T>(values: readonly T[], current: T, delta: number): T {
     const index = values.indexOf(current);
     return values[(index + delta + values.length) % values.length];
 }
+
+/** The "press any key" title only shows once per session; it doubles as the audio unlock gesture. */
+let pressedStart = false;
 
 export class MenuScene extends Phaser.Scene {
     private settings!: GameSettings;
@@ -29,19 +34,54 @@ export class MenuScene extends Phaser.Scene {
         this.settings = getLastSelection();
         new Background(this);
         this.createTitle();
+        applyNeonPost(this);
+        fadeIn(this);
 
+        if (pressedStart) {
+            audio.setMusic("menu");
+            this.createMenu();
+        } else {
+            this.createPressStart();
+        }
+    }
+
+    private createPressStart(): void {
+        const prompt = neonText(this, WIDTH / 2, HEIGHT * 0.75, t("tapToStart"), { size: 24, color: CSS.cyan, glow: 12 });
+        this.tweens.add({ targets: prompt, alpha: 0.2, duration: 650, yoyo: true, repeat: -1, ease: "Sine.InOut" });
+
+        const start = () => {
+            if (pressedStart) {
+                return;
+            }
+
+            pressedStart = true;
+            audio.unlock();
+            audio.setMusic("menu");
+            audio.uiSelect();
+            this.tweens.killTweensOf(prompt);
+            this.tweens.add({ targets: prompt, alpha: 0, scale: 1.4, duration: 200, onComplete: () => prompt.destroy() });
+            // Next frame, so the same key press is not also read by the menu.
+            this.time.delayedCall(60, () => this.createMenu());
+        };
+
+        this.input.keyboard?.once(Phaser.Input.Keyboard.Events.ANY_KEY_DOWN, start);
+        this.input.once(Phaser.Input.Events.POINTER_UP, start);
+    }
+
+    private createMenu(): void {
         // Glass panel keeps the options legible over the moving grid.
-        const panelY = HEIGHT * 0.635;
+        const panelY = HEIGHT * 0.6;
+        const panelH = 300;
         const panel = this.add.graphics();
         panel.fillStyle(COLORS.bgTop, 0.78);
-        panel.fillRoundedRect(WIDTH / 2 - 300, panelY, 600, 270, 18);
+        panel.fillRoundedRect(WIDTH / 2 - 300, panelY, 600, panelH, 18);
         panel.lineStyle(2, COLORS.purple, 0.7);
-        panel.strokeRoundedRect(WIDTH / 2 - 300, panelY, 600, 270, 18);
+        panel.strokeRoundedRect(WIDTH / 2 - 300, panelY, 600, panelH, 18);
 
-        const menu = new MenuList(
+        const menu: MenuList = new MenuList(
             this,
             WIDTH / 2,
-            panelY + 50,
+            panelY + 44,
             [
                 { label: () => t("play"), onSelect: () => this.startGame(menu) },
                 {
@@ -56,17 +96,23 @@ export class MenuScene extends Phaser.Scene {
                         this.settings.difficulty = cycle(DIFFICULTIES, this.settings.difficulty, delta);
                     },
                 },
+                { label: () => t("settings"), onSelect: () => this.openSettings() },
             ],
-            { onUpdate: () => this.updateBest() },
+            { spacing: 56, onUpdate: () => this.updateBest() },
         );
 
-        this.bestText = neonText(this, WIDTH / 2, panelY + 230, "", { size: 18, color: CSS.yellow, glow: 6 });
+        this.bestText = neonText(this, WIDTH / 2, panelY + panelH - 36, "", { size: 18, color: CSS.yellow, glow: 6 });
         this.updateBest();
 
-        neonText(this, WIDTH / 2, HEIGHT - 28, t("menuHint"), { size: 14, color: CSS.dim, glow: 0, weight: 400 });
+        if (!this.sys.game.device.input.touch) {
+            neonText(this, WIDTH / 2, HEIGHT - 22, t("menuHint"), { size: 14, color: CSS.dim, glow: 0, weight: 400 });
+        }
+    }
 
-        applyNeonPost(this);
-        fadeIn(this);
+    private openSettings(): void {
+        const data: SettingsSceneData = { from: SCENES.menu, allowLanguage: true };
+        this.scene.launch(SCENES.settings, data);
+        this.scene.pause();
     }
 
     private createTitle(): void {

@@ -10,6 +10,7 @@ import { GameOverScene } from "./scenes/GameOverScene";
 import { GameScene } from "./scenes/GameScene";
 import { MenuScene } from "./scenes/MenuScene";
 import { PauseScene } from "./scenes/PauseScene";
+import { SettingsScene } from "./scenes/SettingsScene";
 
 async function loadFonts(): Promise<void> {
     // Phaser rasterizes text to canvas once; drawing before the font is ready bakes in the fallback.
@@ -40,7 +41,7 @@ const game = new Phaser.Game({
         activePointers: 2,
     },
     disableContextMenu: true,
-    scene: [BootScene, MenuScene, GameScene, PauseScene, GameOverScene],
+    scene: [BootScene, MenuScene, GameScene, PauseScene, GameOverScene, SettingsScene],
 });
 
 if (import.meta.env.DEV) {

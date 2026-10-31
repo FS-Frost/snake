@@ -1,4 +1,5 @@
 import type { Difficulty, Mode } from "./core/types";
+import { getSettings } from "./storage";
 
 export type Language = "en" | "es";
 
@@ -29,6 +30,23 @@ const en = {
     "difficulty.easy": "EASY",
     "difficulty.normal": "NORMAL",
     "difficulty.hard": "HARD",
+    settings: "SETTINGS",
+    music: "MUSIC",
+    sfx: "SOUND FX",
+    bloom: "GLOW",
+    shake: "SCREEN SHAKE",
+    flash: "FLASHES",
+    touch: "TOUCH",
+    language: "LANGUAGE",
+    back: "BACK",
+    on: "ON",
+    off: "OFF",
+    "touch.swipe": "SWIPE",
+    "touch.dpad": "D-PAD",
+    swipeHint: "SWIPE ANYWHERE TO TURN",
+    tapToStart: "TAP OR PRESS ANY KEY",
+    "language.en": "ENGLISH",
+    "language.es": "ESPAÑOL",
 };
 
 type Key = keyof typeof en;
@@ -60,11 +78,28 @@ const es: Record<Key, string> = {
     "difficulty.easy": "FÁCIL",
     "difficulty.normal": "NORMAL",
     "difficulty.hard": "DIFÍCIL",
+    settings: "AJUSTES",
+    music: "MÚSICA",
+    sfx: "EFECTOS",
+    bloom: "BRILLO NEÓN",
+    shake: "TEMBLOR",
+    flash: "DESTELLOS",
+    touch: "TÁCTIL",
+    language: "IDIOMA",
+    back: "VOLVER",
+    on: "SÍ",
+    off: "NO",
+    "touch.swipe": "DESLIZAR",
+    "touch.dpad": "CRUCETA",
+    swipeHint: "DESLIZA PARA GIRAR",
+    tapToStart: "TOCA O PULSA UNA TECLA",
+    "language.en": "ENGLISH",
+    "language.es": "ESPAÑOL",
 };
 
 const dictionaries: Record<Language, Record<Key, string>> = { en, es };
 
-let language: Language = navigator.language.toLowerCase().startsWith("es") ? "es" : "en";
+let language: Language = getSettings().language;
 
 export function setLanguage(next: Language): void {
     language = next;
