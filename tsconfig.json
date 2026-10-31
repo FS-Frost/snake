@@ -1,15 +1,17 @@
 {
     "compilerOptions": {
-        "module": "ES2020",
-        "jsx": "preserve",
-        "esModuleInterop": true,
-        "sourceMap": true,
-        "lib": ["ES2020", "dom"],
-        "rootDir": ".",
-        "moduleResolution": "node",
-        "allowSyntheticDefaultImports": true,
-        "allowUmdGlobalAccess": true
+        "target": "ES2022",
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "lib": ["ES2022", "DOM", "DOM.Iterable"],
+        "types": ["vite/client"],
+        "strict": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+        "noFallthroughCasesInSwitch": true,
+        "isolatedModules": true,
+        "skipLibCheck": true,
+        "noEmit": true
     },
-    "include": ["./src/**/*"],
-    "exclude": ["./node_modules", "./docs"]
+    "include": ["src", "vite.config.ts"]
 }

@@ -1,0 +1,24 @@
+html,
+body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    background: #05040f;
+    /* No text selection, callouts, pull-to-refresh or double-tap zoom: it must feel like a game, not a page. */
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+    touch-action: none;
+}
+
+#game {
+    position: fixed;
+    inset: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+canvas {
+    display: block;
+    outline: none;
+}

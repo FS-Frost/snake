@@ -1,0 +1,149 @@
+import Phaser from "phaser";
+import { CSS } from "../config";
+import { neonText } from "./neon";
+
+export interface MenuItem {
+    label: () => string;
+    /** ENTER / click. */
+    onSelect?: () => void;
+    /** LEFT / RIGHT on option items. Click cycles forward. */
+    onChange?: (delta: -1 | 1) => void;
+}
+
+export interface MenuListOptions {
+    spacing?: number;
+    size?: number;
+    /** Called whenever focus moves or a value changes (sound hooks, dependent labels). */
+    onUpdate?: () => void;
+}
+
+/**
+ * Vertical in-canvas menu driven by keyboard, mouse and touch.
+ */
+export class MenuList {
+    private readonly scene: Phaser.Scene;
+    private readonly items: MenuItem[];
+    private readonly texts: Phaser.GameObjects.Text[];
+    private readonly onUpdate?: () => void;
+    private focus = 0;
+    private enabled = true;
+
+    constructor(scene: Phaser.Scene, x: number, y: number, items: MenuItem[], options: MenuListOptions = {}) {
+        const { spacing = 64, size = 30 } = options;
+        this.scene = scene;
+        this.items = items;
+        this.onUpdate = options.onUpdate;
+
+        this.texts = items.map((item, index) => {
+            const text = neonText(scene, x, y + index * spacing, item.label(), { size, glow: 10 });
+            text.setInteractive({ useHandCursor: true });
+            text.on(Phaser.Input.Events.GAMEOBJECT_POINTER_OVER, () => this.setFocus(index));
+            text.on(Phaser.Input.Events.GAMEOBJECT_POINTER_UP, () => {
+                this.setFocus(index);
+                this.activate(1);
+            });
+            return text;
+        });
+
+        scene.input.keyboard?.on(Phaser.Input.Keyboard.Events.ANY_KEY_DOWN, this.handleKey, this);
+        scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+            scene.input.keyboard?.off(Phaser.Input.Keyboard.Events.ANY_KEY_DOWN, this.handleKey, this);
+        });
+
+        this.render();
+    }
+
+    setEnabled(enabled: boolean): void {
+        this.enabled = enabled;
+    }
+
+    refresh(): void {
+        this.render();
+    }
+
+    private handleKey(event: KeyboardEvent): void {
+        if (!this.enabled) {
+            return;
+        }
+
+        switch (event.code) {
+            case "ArrowUp":
+            case "KeyW":
+                this.setFocus((this.focus - 1 + this.items.length) % this.items.length);
+                break;
+            case "ArrowDown":
+            case "KeyS":
+                this.setFocus((this.focus + 1) % this.items.length);
+                break;
+            case "ArrowLeft":
+            case "KeyA":
+                this.change(-1);
+                break;
+            case "ArrowRight":
+            case "KeyD":
+                this.change(1);
+                break;
+            case "Enter":
+            case "NumpadEnter":
+            case "Space":
+                this.activate(1);
+                break;
+        }
+    }
+
+    private setFocus(index: number): void {
+        if (index === this.focus) {
+            return;
+        }
+
+        this.focus = index;
+        this.render();
+        this.onUpdate?.();
+    }
+
+    private change(delta: -1 | 1): void {
+        const item = this.items[this.focus];
+
+        if (!item.onChange) {
+            return;
+        }
+
+        item.onChange(delta);
+        this.render();
+        this.onUpdate?.();
+
+        const text = this.texts[this.focus];
+        this.scene.tweens.add({ targets: text, x: text.x + delta * 8, duration: 60, yoyo: true });
+    }
+
+    private activate(delta: -1 | 1): void {
+        if (!this.enabled) {
+            return;
+        }
+
+        const item = this.items[this.focus];
+
+        if (item.onChange) {
+            this.change(delta);
+            return;
+        }
+
+        const text = this.texts[this.focus];
+        this.scene.tweens.add({ targets: text, scale: 1.15, duration: 80, yoyo: true });
+        item.onSelect?.();
+    }
+
+    private render(): void {
+        this.items.forEach((item, index) => {
+            const text = this.texts[index];
+            const focused = index === this.focus;
+            const label = item.onChange ? `<  ${item.label()}  >` : item.label();
+            const color = focused ? CSS.cyan : CSS.dim;
+
+            text.setText(focused && !item.onChange ? `>  ${label}  <` : label);
+            text.setColor(color);
+            text.setShadow(0, 0, color, focused ? 16 : 0, false, true);
+            text.setAlpha(focused ? 1 : 0.75);
+        });
+    }
+}
