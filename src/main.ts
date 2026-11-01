@@ -14,6 +14,7 @@ import { GameOverScene } from "./scenes/GameOverScene";
 import { GameScene } from "./scenes/GameScene";
 import { MenuScene } from "./scenes/MenuScene";
 import { PauseScene } from "./scenes/PauseScene";
+import { FonotecaScene } from "./scenes/FonotecaScene";
 import { MessageScene } from "./scenes/MessageScene";
 import { SettingsScene } from "./scenes/SettingsScene";
 
@@ -52,7 +53,7 @@ const game = new Phaser.Game({
         activePointers: 2,
     },
     disableContextMenu: true,
-    scene: [BootScene, MenuScene, GameScene, PauseScene, GameOverScene, SettingsScene, MessageScene],
+    scene: [BootScene, MenuScene, GameScene, PauseScene, GameOverScene, SettingsScene, MessageScene, FonotecaScene],
 });
 
 game.events.once(Phaser.Core.Events.READY, () => {

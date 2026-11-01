@@ -17,12 +17,13 @@ import { audio } from "../audio/Audio";
 import { SPEED_CURVES, ticksPerSecond } from "../core/difficulty";
 import { type AdvanceResult, SnakeGame, type StepResult } from "../core/SnakeGame";
 import type { Cell, Direction } from "../core/types";
-import { difficultyLabel, itemLabel, modeLabel, t } from "../i18n";
+import { difficultyLabel, itemLabel, type Key, modeLabel, t } from "../i18n";
 import { getHighScore, getSettings, submitScore } from "../storage";
 import { activeStyle, styleLabel, surpriseOnFood, type TextRole, theme, toCss } from "../theme";
 import { addBackdrop, particleTexture } from "../ui/Background";
 import { applyNeonPost, fadeIn, flash, gameText, shake, vibrate } from "../ui/neon";
 import { TouchControls } from "../ui/TouchControls";
+import { gameSong, type TrackId, unlockEarned } from "../tracks";
 import { cellX, cellY, drawBoard, FoodView, ItemView, ObstacleView, PowerHud, SnakeView } from "./GameViews";
 import type { GameSettings } from "./MenuScene";
 
@@ -168,6 +169,7 @@ export class GameScene extends Phaser.Scene {
 
             if (resume.styleSwitch) {
                 this.playChannelSwitch();
+                this.announceTracks(unlockEarned(gameSong(this.logic.level), theme().pixel));
                 return;
             }
 
@@ -181,7 +183,9 @@ export class GameScene extends Phaser.Scene {
         }
 
         fadeIn(this);
-        audio.setMusic("game");
+        const song = gameSong(this.logic.level);
+        audio.setMusic(song);
+        this.announceTracks(unlockEarned(song, theme().pixel));
         audio.setIntensity(0);
         audio.setMuffled(false);
         audio.setSlowmo(false);
@@ -388,6 +392,28 @@ export class GameScene extends Phaser.Scene {
         }
     }
 
+    /** "New track" toast at the top of the board for each Fonoteca unlock. */
+    private announceTracks(ids: TrackId[]): void {
+        ids.forEach((id, index) => {
+            this.time.delayedCall(index * 1900, () => {
+                const toast = gameText(this, WIDTH / 2, BOARD_Y + 40, `${t("newTrack")}: ${t(`track.${id}` as Key)}`, {
+                    size: 18,
+                    color: "highlight",
+                    glow: 8,
+                }).setDepth(900);
+                toast.setAlpha(0).setY(toast.y - 16);
+                audio.trackUnlocked();
+                this.tweens.chain({
+                    targets: toast,
+                    tweens: [
+                        { alpha: 1, y: toast.y + 16, duration: 220, ease: "Back.Out" },
+                        { alpha: 0, delay: 1400, duration: 260, onComplete: () => toast.destroy() },
+                    ],
+                });
+            });
+        });
+    }
+
     /** Surprise mode: rebuild every visual in the new style without interrupting the match. */
     private switchStyle(): void {
         if (this.phase !== "playing") {
@@ -474,6 +500,11 @@ export class GameScene extends Phaser.Scene {
 
     private onLevelUp(cells: Cell[]): void {
         audio.levelUp();
+        const song = gameSong(this.logic.level);
+        if (song !== audio.currentSection) {
+            audio.setMusic(song);
+            this.announceTracks(unlockEarned(song, theme().pixel));
+        }
         this.obstacleView.add(cells);
 
         const banner = gameText(this, WIDTH / 2, BOARD_Y + BOARD_H * 0.3, `${t("level")} ${this.logic.level}`, {

@@ -82,7 +82,7 @@ export class GameOverScene extends Phaser.Scene {
         this.time.delayedCall(600, () => menu.setEnabled(true));
 
         // Music comes back calm after the crash.
-        this.time.delayedCall(1800, () => audio.setMusic("menu"));
+        this.time.delayedCall(1800, () => audio.setMusic("title"));
 
         applyNeonPost(this);
     }

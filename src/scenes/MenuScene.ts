@@ -64,7 +64,7 @@ export class MenuScene extends Phaser.Scene {
         this.events.once(Phaser.Scenes.Events.SHUTDOWN, unsubscribe);
 
         if (pressedStart) {
-            audio.setMusic("menu");
+            audio.setMusic("title");
             this.createPanel(data.focus);
         } else {
             this.createPressStart();
@@ -82,7 +82,7 @@ export class MenuScene extends Phaser.Scene {
 
             pressedStart = true;
             audio.unlock();
-            audio.setMusic("menu");
+            audio.setMusic("title");
             audio.uiSelect();
             this.tweens.killTweensOf(prompt);
             this.tweens.add({ targets: prompt, alpha: 0, scale: 1.4, duration: 200, onComplete: () => prompt.destroy() });
@@ -158,6 +158,13 @@ export class MenuScene extends Phaser.Scene {
                     updateSettings({ style: next });
                     // Rebuild in the new style right away; keep focus on this item.
                     this.restart({ instant: true, focus: 3 });
+                },
+            },
+            {
+                label: () => t("fonoteca"),
+                onSelect: () => {
+                    setLastSelection(this.settings.mode, this.settings.difficulty);
+                    transitionTo(this, SCENES.fonoteca);
                 },
             },
             { label: () => t("settings"), onSelect: () => this.openSettings() },

@@ -25,6 +25,8 @@ export interface Settings {
 
 interface SaveData {
     highScores: Record<string, number>;
+    /** Fonoteca tracks unlocked by playing (free ones are not stored). */
+    unlockedTracks: string[];
     lastMode: Mode;
     lastDifficulty: Difficulty;
     settings: Settings;
@@ -50,6 +52,7 @@ const defaultSettings: Settings = {
 
 const defaults: SaveData = {
     highScores: {},
+    unlockedTracks: [],
     lastMode: "wrap",
     lastDifficulty: "normal",
     settings: defaultSettings,
@@ -102,6 +105,20 @@ export function submitScore(mode: Mode, difficulty: Difficulty, score: number): 
 
 export function getLastSelection(): { mode: Mode; difficulty: Difficulty } {
     return { mode: data.lastMode, difficulty: data.lastDifficulty };
+}
+
+export function isTrackUnlocked(id: string): boolean {
+    return data.unlockedTracks.includes(id);
+}
+
+/** Returns true when the track was locked until now. */
+export function unlockTrack(id: string): boolean {
+    if (isTrackUnlocked(id)) {
+        return false;
+    }
+    data = { ...data, unlockedTracks: [...data.unlockedTracks, id] };
+    save();
+    return true;
 }
 
 export function setLastSelection(mode: Mode, difficulty: Difficulty): void {

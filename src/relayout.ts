@@ -54,6 +54,10 @@ export function relayout(game: Phaser.Game, force = false): void {
         game.scene.stop(SCENES.settings);
         game.scene.start(SCENES.menu);
     }
+
+    if (isOn(game, SCENES.fonoteca)) {
+        game.scene.start(SCENES.fonoteca);
+    }
 }
 
 function resizeCanvas(game: Phaser.Game): void {

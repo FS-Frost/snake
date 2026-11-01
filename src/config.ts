@@ -134,4 +134,5 @@ export const SCENES = {
     gameOver: "GameOver",
     settings: "Settings",
     message: "Message",
+    fonoteca: "Fonoteca",
 } as const;

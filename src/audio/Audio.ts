@@ -1,27 +1,23 @@
 import type { ItemType } from "../core/types";
 import { getSettings } from "../storage";
+import { type SongId, SONGS, STEPS_PER_BAR, type Voices } from "./songs";
 
 /**
  * Procedural audio: every sound and the music are synthesized with Web Audio. No files.
  *
  * Graph:
- *   voices → musicBus → musicFilter (lowpass, closes on pause) → musicGain ┐
+ *   voices → musicBus → musicFilter (lowpass, closes on pause) → musicGain ┬→ analyser (visualizer)
  *   sfx voices → sfxGain ─────────────────────────────────────────────────┴→ compressor → destination
+ *
+ * Songs live in songs.ts; this engine schedules their steps with a lookahead timer.
  */
 
-export type MusicSection = "off" | "menu" | "game";
+export type MusicSection = "off" | SongId;
+
+/** Timbre forced by the Fonoteca; null follows the visual style. */
+export type TimbreOverride = "neon" | "chip" | null;
 
 const midiToHz = (midi: number) => 440 * 2 ** ((midi - 69) / 12);
-
-/** Am - F - C - G, one bar each. Bass root plus three chord tones. */
-const PROGRESSION = [
-    { bass: 45, chord: [57, 60, 64] },
-    { bass: 41, chord: [53, 57, 60] },
-    { bass: 48, chord: [55, 60, 64] },
-    { bass: 43, chord: [55, 59, 62] },
-];
-
-const STEPS_PER_BAR = 16;
 const LOOKAHEAD_S = 0.12;
 const SCHEDULER_MS = 25;
 const OPEN_FILTER_HZ = 18000;
@@ -43,7 +39,20 @@ class AudioEngine {
     private intensity = 0;
     private tempoScale = 1;
     /** Old School styles: console-like timbres (triangle bass, square lead, no pad, no filter sweeps). */
-    private chiptune = false;
+    private styleChiptune = false;
+    private timbreOverride: TimbreOverride = null;
+    private analyser: AnalyserNode | null = null;
+    /** Called each time the current song completes its 4-bar loop. */
+    private loopListener: (() => void) | null = null;
+    private readonly voices: Voices = {
+        bass: (t, midi, duration, level) => this.bass(t, midi, duration, level),
+        arp: (t, midi, duration, level) => this.arp(t, midi, duration, level),
+        pad: (t, chord, duration) => this.pad(t, chord, duration),
+        kick: (t) => this.kick(t),
+        snare: (t) => this.snare(t),
+        hat: (t, level) => this.hat(t, level),
+        sweep: (t, duration) => this.sweep(t, duration),
+    };
 
     /** Browsers only allow audio after a user gesture: call this from the first input. */
     unlock(): void {
@@ -193,6 +202,12 @@ class AudioEngine {
         this.tone({ type: "square", freq: 1560, duration: 0.05, gain: 0.1, delay: 0.2 });
     }
 
+    /** Little two-note jingle for a Fonoteca unlock. */
+    trackUnlocked(): void {
+        this.tone({ type: "triangle", freq: midiToHz(84), duration: 0.12, gain: 0.14 });
+        this.tone({ type: "triangle", freq: midiToHz(91), duration: 0.2, gain: 0.14, delay: 0.11 });
+    }
+
     itemSpawn(): void {
         this.tone({ type: "triangle", freq: 1320, duration: 0.12, gain: 0.18 });
         this.tone({ type: "triangle", freq: 1760, duration: 0.18, gain: 0.14, delay: 0.08 });
@@ -215,7 +230,33 @@ class AudioEngine {
     }
 
     setChiptune(on: boolean): void {
-        this.chiptune = on;
+        this.styleChiptune = on;
+    }
+
+    /** Fonoteca: play any song in a given timbre regardless of the visual style. */
+    setTimbreOverride(override: TimbreOverride): void {
+        this.timbreOverride = override;
+    }
+
+    private get chiptune(): boolean {
+        return this.timbreOverride ? this.timbreOverride === "chip" : this.styleChiptune;
+    }
+
+    get currentSection(): MusicSection {
+        return this.section;
+    }
+
+    onLoop(listener: (() => void) | null): void {
+        this.loopListener = listener;
+    }
+
+    /** Fills `out` with the music spectrum (0-255 per bin). False before audio is unlocked. */
+    getSpectrum(out: Uint8Array<ArrayBuffer>): boolean {
+        if (!this.analyser) {
+            return false;
+        }
+        this.analyser.getByteFrequencyData(out);
+        return true;
     }
 
     /** Music drags while slow-mo runs. */
@@ -248,6 +289,11 @@ class AudioEngine {
         this.musicGain = ctx.createGain();
         this.musicGain.gain.value = 0;
         this.musicGain.connect(compressor);
+
+        this.analyser = ctx.createAnalyser();
+        this.analyser.fftSize = 256;
+        this.analyser.smoothingTimeConstant = 0.75;
+        this.musicGain.connect(this.analyser);
 
         this.musicFilter = ctx.createBiquadFilter();
         this.musicFilter.type = "lowpass";
@@ -294,49 +340,31 @@ class AudioEngine {
         }
 
         while (this.nextStepTime < ctx.currentTime + LOOKAHEAD_S) {
-            if (this.section !== "off") {
-                this.playStep(this.step, this.nextStepTime);
+            if (this.section === "off") {
+                this.nextStepTime += 0.05;
+                continue;
             }
 
-            const bpm = (this.section === "game" ? 108 + this.intensity * 26 : 96) * this.tempoScale;
-            this.nextStepTime += 60 / bpm / 4;
-            this.step = (this.step + 1) % (STEPS_PER_BAR * PROGRESSION.length);
+            const song = SONGS[this.section];
+            const bpm = this.songBpm() * this.tempoScale;
+            const sixteenth = 60 / bpm / 4;
+            const barIndex = Math.floor(this.step / STEPS_PER_BAR);
+            song.play(this.voices, song.bars[barIndex], this.step % STEPS_PER_BAR, this.nextStepTime, sixteenth, barIndex);
+
+            this.nextStepTime += sixteenth;
+            this.step = (this.step + 1) % (STEPS_PER_BAR * song.bars.length);
+            if (this.step === 0) {
+                this.loopListener?.();
+            }
         }
     }
 
-    private playStep(step: number, t: number): void {
-        const bar = PROGRESSION[Math.floor(step / STEPS_PER_BAR)];
-        const s = step % STEPS_PER_BAR;
-        const sixteenth = 60 / 108 / 4;
-
-        if (this.section === "menu") {
-            if (s === 0 && !this.chiptune) {
-                this.pad(t, bar.chord, sixteenth * STEPS_PER_BAR);
-            }
-            if (s % 4 === 0) {
-                this.bass(t, bar.bass, sixteenth * 3, 0.16);
-            }
-            if (s % 2 === 0) {
-                this.arp(t, bar.chord[(s / 2) % 3] + 12, sixteenth * 1.5, 0.035);
-            }
-            return;
+    private songBpm(): number {
+        if (this.section === "off") {
+            return 100;
         }
-
-        // Game: driving octave bass, 16th arpeggio and four-on-the-floor drums.
-        if (s % 2 === 0) {
-            this.bass(t, bar.bass + (s % 4 === 2 ? 12 : 0), sixteenth * 1.6, 0.22);
-        }
-        this.arp(t, bar.chord[s % 3] + (s >= 8 ? 12 : 0), sixteenth * 0.9, 0.045);
-
-        if (s % 4 === 0) {
-            this.kick(t);
-        }
-        if (s === 4 || s === 12) {
-            this.snare(t);
-        }
-        if (s % 2 === 1) {
-            this.hat(t, s % 4 === 3 ? 0.09 : 0.05);
-        }
+        const [rest, full] = SONGS[this.section].bpm;
+        return rest + (full - rest) * this.intensity;
     }
 
     private bass(t: number, midi: number, duration: number, level: number): void {
@@ -383,7 +411,11 @@ class AudioEngine {
         osc.stop(t + duration + 0.02);
     }
 
-    private pad(t: number, chord: number[], duration: number): void {
+    private pad(t: number, chord: readonly number[], duration: number): void {
+        // Consoles had no pad channel.
+        if (this.chiptune) {
+            return;
+        }
         const ctx = this.ctx!;
         const filter = ctx.createBiquadFilter();
         const gain = ctx.createGain();
@@ -425,6 +457,24 @@ class AudioEngine {
 
     private snare(t: number): void {
         this.noiseHit(t, { type: "bandpass", freq: 1800, gain: 0.32, decay: 0.16, bus: this.musicBus });
+    }
+
+    /** Static rising into the next loop (channel-change feel). */
+    private sweep(t: number, duration: number): void {
+        const ctx = this.ctx!;
+        const source = ctx.createBufferSource();
+        const filter = ctx.createBiquadFilter();
+        const gain = ctx.createGain();
+        source.buffer = this.noise;
+        filter.type = "bandpass";
+        filter.frequency.setValueAtTime(800, t);
+        filter.frequency.exponentialRampToValueAtTime(8000, t + duration);
+        gain.gain.setValueAtTime(0.001, t);
+        gain.gain.exponentialRampToValueAtTime(0.12, t + duration * 0.9);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+        source.connect(filter).connect(gain).connect(this.musicBus);
+        source.start(t, Math.random() * 0.5);
+        source.stop(t + duration + 0.02);
     }
 
     private hat(t: number, level: number): void {
