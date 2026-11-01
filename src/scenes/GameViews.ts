@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { BOARD_H, BOARD_W, BOARD_X, BOARD_Y, CELL, GRID_COLS, GRID_ROWS, WIDTH } from "../config";
+import { BOARD_H, BOARD_W, BOARD_X, BOARD_Y, CELL, GRID_COLS, GRID_ROWS } from "../config";
 import { type Item, RULES, type SnakeGame } from "../core/SnakeGame";
 import { type Cell, DIRECTION_VECTORS, type EffectType, type Mode } from "../core/types";
 import { itemLabel, t } from "../i18n";
@@ -399,7 +399,8 @@ export class ItemView {
 export class ObstacleView {
     constructor(private readonly scene: Phaser.Scene) {}
 
-    add(cells: Cell[]): void {
+    /** `animate` false redraws existing obstacles silently (after a relayout). */
+    add(cells: Cell[], animate = true): void {
         const style = theme();
 
         cells.forEach((cell, index) => {
@@ -409,6 +410,10 @@ export class ObstacleView {
                 block.fillStyle(style.obstacle, 1);
                 block.fillRect(-CELL / 2 + 1, -CELL / 2 + 1, CELL - 2, CELL - 2);
                 drawSprite(block, SPRITES.brick, 0, 0, style.obstacleDetail);
+
+                if (!animate) {
+                    return;
+                }
 
                 // Pixel styles do not scale smoothly: blink in instead.
                 block.setVisible(false);
@@ -427,6 +432,10 @@ export class ObstacleView {
             block.lineBetween(-size / 4, -size / 4, size / 4, size / 4);
             block.lineBetween(size / 4, -size / 4, -size / 4, size / 4);
 
+            if (!animate) {
+                return;
+            }
+
             block.setScale(2.2).setAlpha(0);
             this.scene.tweens.add({
                 targets: block,
@@ -442,8 +451,19 @@ export class ObstacleView {
 
 // ---------------------------------------------------------------------- HUD
 
+export interface PowerHudLayout {
+    comboX: number;
+    comboY: number;
+    comboAlign: "left" | "center";
+    /** Center of the effect bars. */
+    effectsX: number;
+    effectsY: number;
+    /** Landscape column: effects stack vertically instead of side by side. */
+    stack: boolean;
+}
+
 /**
- * Combo meter next to the score and timed-effect bars in the footer.
+ * Combo meter and timed-effect bars.
  */
 export class PowerHud {
     private readonly comboText: Phaser.GameObjects.Text;
@@ -454,22 +474,21 @@ export class PowerHud {
 
     constructor(
         private readonly scene: Phaser.Scene,
-        private readonly comboX: number,
-        private readonly comboY: number,
-        private readonly footerY: number,
+        private readonly layout: PowerHudLayout,
     ) {
+        const { comboX, comboY, comboAlign, effectsX, effectsY } = layout;
         // Wash over the board while time is slowed.
         this.slowmoTint = scene.add
             .rectangle(BOARD_X, BOARD_Y, BOARD_W, BOARD_H, theme().items.slowmo, 0.07)
             .setOrigin(0)
             .setVisible(false);
 
-        gameText(scene, comboX, comboY - 38, t("combo"), { size: 13, color: "dim", glow: 0, weight: 400, align: "left" });
-        this.comboText = gameText(scene, comboX, comboY, "", { size: 28, color: "danger", weight: 500, glow: 6, align: "left" });
+        gameText(scene, comboX, comboY - 40, t("combo"), { size: 13, color: "dim", glow: 0, weight: 400, align: comboAlign });
+        this.comboText = gameText(scene, comboX, comboY, "", { size: 28, color: "danger", weight: 500, glow: 6, align: comboAlign });
         this.bars = scene.add.graphics();
 
         const label = (effect: EffectType) =>
-            gameText(scene, WIDTH / 2, footerY - 8, itemLabel(effect), {
+            gameText(scene, effectsX, effectsY - 8, itemLabel(effect), {
                 size: 12,
                 color: effect === "slowmo" ? "primary" : "text",
                 glow: 4,
@@ -490,8 +509,10 @@ export class PowerHud {
             if (logic.combo !== this.lastCombo) {
                 this.scene.tweens.add({ targets: this.comboText, scale: 1.35, duration: 90, yoyo: true });
             }
+            const { comboX, comboY, comboAlign } = this.layout;
+            const barX = comboAlign === "center" ? comboX - 28 : comboX;
             g.fillStyle(style.text.danger, 0.9);
-            g.fillRect(this.comboX, this.comboY + 20, 56 * remaining, 4);
+            g.fillRect(barX, comboY + 22, 56 * remaining, 4);
         } else {
             // Idle meter stays visible but dim, so the column does not pop in and out.
             this.comboText.setAlpha(0.35).setText("x1");
@@ -501,14 +522,17 @@ export class PowerHud {
         // Effects: centered, side by side when both run.
         const active = (["slowmo", "ghost"] as const).filter((effect) => logic.isActive(effect));
         const width = 120;
+        const { effectsX, effectsY, stack } = this.layout;
         active.forEach((effect, index) => {
-            const x = WIDTH / 2 + (index - (active.length - 1) / 2) * (width + 24);
+            const offset = index - (active.length - 1) / 2;
+            const x = stack ? effectsX : effectsX + offset * (width + 24);
+            const y = stack ? effectsY + index * 60 : effectsY;
             const color = effect === "slowmo" ? style.text.primary : style.text.text;
-            this.effectLabels[effect].setVisible(true).setX(x);
+            this.effectLabels[effect].setVisible(true).setPosition(x, y - 8);
             g.fillStyle(color, 0.25);
-            g.fillRect(x - width / 2, this.footerY + 6, width, 5);
+            g.fillRect(x - width / 2, y + 10, width, 5);
             g.fillStyle(color, 1);
-            g.fillRect(x - width / 2, this.footerY + 6, width * logic.effectRemaining(effect), 5);
+            g.fillRect(x - width / 2, y + 10, width * logic.effectRemaining(effect), 5);
         });
         for (const effect of ["slowmo", "ghost"] as const) {
             if (!active.includes(effect)) {

@@ -1,5 +1,17 @@
 import Phaser from "phaser";
-import { BOARD_H, BOARD_W, BOARD_X, BOARD_Y, GRID_COLS, GRID_ROWS, SCENES, WIDTH } from "../config";
+import {
+    BOARD_H,
+    BOARD_W,
+    BOARD_X,
+    BOARD_Y,
+    CONTROLS_X,
+    GRID_COLS,
+    GRID_ROWS,
+    HUD_X,
+    LAYOUT,
+    SCENES,
+    WIDTH,
+} from "../config";
 import { audio } from "../audio/Audio";
 import { SPEED_CURVES, ticksPerSecond } from "../core/difficulty";
 import { type AdvanceResult, SnakeGame, type StepResult } from "../core/SnakeGame";
@@ -13,7 +25,18 @@ import { TouchControls } from "../ui/TouchControls";
 import { cellX, cellY, drawBoard, FoodView, ItemView, ObstacleView, PowerHud, SnakeView } from "./GameViews";
 import type { GameSettings } from "./MenuScene";
 
-type Phase = "countdown" | "playing" | "dying" | "over";
+export type Phase = "countdown" | "playing" | "dying" | "over";
+
+/** A running match carried across a relayout (screen rotation), so the board is rebuilt without losing it. */
+export interface ResumeState {
+    logic: SnakeGame;
+    elapsedMs: number;
+    phase: Phase;
+}
+
+export interface GameSceneData extends GameSettings {
+    resume?: ResumeState;
+}
 
 export interface GameOverData {
     settings: GameSettings;
@@ -36,6 +59,15 @@ const KEY_DIRECTIONS: Record<string, Direction> = {
     ArrowRight: "right",
     KeyD: "right",
 };
+
+/** Width kept free at the right of the top HUD for the pause button. */
+const PAUSE_SLOT = 64;
+
+/** Centers of the four top-HUD columns (portrait and desktop). */
+function hudColumns(): number[] {
+    const width = BOARD_W - PAUSE_SLOT;
+    return [0, 1, 2, 3].map((i) => BOARD_X + (width * (i + 0.5)) / 4);
+}
 
 /** Large frame gaps (tab switch, debugger) must not fast-forward the snake into a wall. */
 const MAX_FRAME_MS = 250;
@@ -67,24 +99,39 @@ export class GameScene extends Phaser.Scene {
         super(SCENES.game);
     }
 
-    create(settings: GameSettings): void {
-        this.settings = settings;
-        this.logic = new SnakeGame({
-            cols: GRID_COLS,
-            rows: GRID_ROWS,
-            mode: settings.mode,
-            difficulty: settings.difficulty,
-        });
-        this.phase = "countdown";
+    create(data: GameSceneData): void {
+        const { resume } = data;
+        this.settings = { mode: data.mode, difficulty: data.difficulty };
+        this.logic =
+            resume?.logic ??
+            new SnakeGame({
+                cols: GRID_COLS,
+                rows: GRID_ROWS,
+                mode: data.mode,
+                difficulty: data.difficulty,
+            });
+        // A resumed countdown restarts as plain play behind the pause menu.
+        this.phase = resume ? (resume.phase === "countdown" ? "playing" : resume.phase) : "countdown";
         this.accumulator = 0;
-        this.elapsedMs = 0;
+        this.elapsedMs = resume?.elapsedMs ?? 0;
         this.explodedSegments = 0;
-        this.best = getHighScore(settings.mode, settings.difficulty);
+        this.best = getHighScore(data.mode, data.difficulty);
 
         addBackdrop(this);
-        drawBoard(this, settings.mode);
-        this.powerHud = new PowerHud(this, BOARD_X + 196, 82, BOARD_Y + BOARD_H + 32);
+        drawBoard(this, data.mode);
+        this.powerHud =
+            LAYOUT === "landscape"
+                ? new PowerHud(this, { comboX: HUD_X, comboY: 170, comboAlign: "center", effectsX: HUD_X, effectsY: 450, stack: true })
+                : new PowerHud(this, {
+                      comboX: hudColumns()[1],
+                      comboY: 84,
+                      comboAlign: "center",
+                      effectsX: WIDTH / 2,
+                      effectsY: BOARD_Y + BOARD_H + 32,
+                      stack: false,
+                  });
         this.obstacleView = new ObstacleView(this);
+        this.obstacleView.add(this.logic.obstacles, false);
         this.foodView = new FoodView(this);
         this.itemView = new ItemView(this);
         this.snakeView = new SnakeView(this);
@@ -111,12 +158,37 @@ export class GameScene extends Phaser.Scene {
         });
 
         applyNeonPost(this);
+
+        if (resume) {
+            // Rebuilt after a rotation: land on the pause menu so the player re-orients before moving on.
+            audio.setIntensity(this.logic.foodsEaten / 30);
+            audio.setSlowmo(this.logic.isActive("slowmo"));
+            // Draw one frame now: a paused scene never runs update(), so the board and HUD would stay empty.
+            this.update(0, 0);
+            if (this.phase === "playing") {
+                this.pause();
+            }
+            return;
+        }
+
         fadeIn(this);
         audio.setMusic("game");
         audio.setIntensity(0);
         audio.setMuffled(false);
         audio.setSlowmo(false);
         this.runCountdown();
+    }
+
+    /** Snapshot for relayout; null while the death animation runs (it must finish first). */
+    getResumeState(): ResumeState | null {
+        if (this.phase === "dying") {
+            return null;
+        }
+        return { logic: this.logic, elapsedMs: this.elapsedMs, phase: this.phase };
+    }
+
+    getSettings(): GameSettings {
+        return this.settings;
     }
 
     update(_time: number, delta: number): void {
@@ -419,37 +491,34 @@ export class GameScene extends Phaser.Scene {
     // ---------------------------------------------------------------- HUD
 
     private createHud(): void {
+        if (LAYOUT === "landscape") {
+            this.createSideHud();
+            return;
+        }
+
         const labelY = 44;
-        const valueY = 82;
+        const valueY = 84;
         const label = { size: 13, color: "dim", glow: 0, weight: 400 } as const;
+        // Four equal centered columns (score, combo, time, best) plus room for the pause button.
+        // Labels grow on phones, so fixed offsets would make them overlap.
+        const columns = hudColumns();
 
         // Small glow on numbers: big blur turns digits into blobs under the bloom.
-        gameText(this, BOARD_X, labelY, t("score"), { ...label, align: "left" });
-        this.scoreText = gameText(this, BOARD_X, valueY, "0", {
-            size: 34,
-            color: "primary",
-            weight: 500,
-            glow: 5,
-            align: "left",
-        });
+        gameText(this, columns[0], labelY, t("score"), label);
+        this.scoreText = gameText(this, columns[0], valueY, "0", { size: 34, color: "primary", weight: 500, glow: 5 });
 
-        gameText(this, WIDTH / 2, labelY, t("time"), label);
-        this.timeText = gameText(this, WIDTH / 2, valueY, "00:00", { size: 28, color: "text", weight: 400, glow: 0 });
+        gameText(this, columns[2], labelY, t("time"), label);
+        this.timeText = gameText(this, columns[2], valueY, "00:00", { size: 28, color: "text", weight: 400, glow: 0 });
 
-        const bestX = BOARD_X + BOARD_W - 64;
-        gameText(this, bestX, labelY, t("best"), { ...label, align: "right" });
-        this.bestText = gameText(this, bestX, valueY, String(this.best), {
+        gameText(this, columns[3], labelY, t("best"), label);
+        this.bestText = gameText(this, columns[3], valueY, String(this.best), {
             size: 28,
             color: "highlight",
             weight: 500,
             glow: 5,
-            align: "right",
         });
 
-        // Pause button, needed on touch screens without an ESC key.
-        const pauseButton = gameText(this, BOARD_X + BOARD_W - 18, 64, "II", { size: 30, color: "primary", weight: 900 });
-        pauseButton.setInteractive({ useHandCursor: true });
-        pauseButton.on(Phaser.Input.Events.GAMEOBJECT_POINTER_UP, () => this.pause());
+        this.createPauseButton(BOARD_X + BOARD_W - PAUSE_SLOT / 2 + 8, 64);
 
         const footerY = BOARD_Y + BOARD_H + 32;
         const tag = `${modeLabel(this.settings.mode)}  ·  ${difficultyLabel(this.settings.difficulty)}`;
@@ -460,6 +529,42 @@ export class GameScene extends Phaser.Scene {
             glow: 6,
             align: "right",
         });
+    }
+
+    /** Landscape: everything stacked in the column beside the board. */
+    private createSideHud(): void {
+        const x = HUD_X;
+        const label = { size: 13, color: "dim", glow: 0, weight: 400 } as const;
+
+        gameText(this, x, 36, t("score"), label);
+        this.scoreText = gameText(this, x, 70, "0", { size: 34, color: "primary", weight: 500, glow: 5 });
+        // y 136-170 belongs to the combo meter (PowerHud).
+        gameText(this, x, 236, t("time"), label);
+        this.timeText = gameText(this, x, 270, "00:00", { size: 28, color: "text", weight: 400, glow: 0 });
+        gameText(this, x, 336, t("best"), label);
+        this.bestText = gameText(this, x, 370, String(this.best), { size: 28, color: "highlight", weight: 500, glow: 5 });
+
+        const tagStyle = { size: 14, color: "secondary", glow: 6 } as const;
+        gameText(this, x, BOARD_Y + BOARD_H - 70, modeLabel(this.settings.mode), tagStyle);
+        gameText(this, x, BOARD_Y + BOARD_H - 40, difficultyLabel(this.settings.difficulty), tagStyle);
+        this.speedText = gameText(this, x, BOARD_Y + BOARD_H - 6, "", tagStyle);
+
+        // Pause sits at the top of the controls column, within thumb reach.
+        this.createPauseButton(CONTROLS_X, BOARD_Y + 30);
+    }
+
+    /** Needed on touch screens without an ESC key; bigger there so a thumb can hit it. */
+    private createPauseButton(x: number, y: number): void {
+        const touch = this.sys.game.device.input.touch;
+        const pauseButton = gameText(this, x, y, "II", { size: touch ? 48 : 30, color: "primary", weight: 900 });
+        // Generous hit area around the glyph.
+        const pad = touch ? 28 : 10;
+        pauseButton.setInteractive({
+            hitArea: new Phaser.Geom.Rectangle(-pad, -pad, pauseButton.width + pad * 2, pauseButton.height + pad * 2),
+            hitAreaCallback: Phaser.Geom.Rectangle.Contains,
+            useHandCursor: true,
+        });
+        pauseButton.on(Phaser.Input.Events.GAMEOBJECT_POINTER_UP, () => this.pause());
     }
 
     private updateHud(): void {

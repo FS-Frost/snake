@@ -7,11 +7,14 @@ import "./style.css";
 import Phaser from "phaser";
 import { COLORS, HEIGHT, WIDTH } from "./config";
 import { DEBUG, installDebugOverlay, reportRenderer } from "./debug";
+import { captureInstallPrompt } from "./install";
+import { watchLayout } from "./relayout";
 import { BootScene } from "./scenes/BootScene";
 import { GameOverScene } from "./scenes/GameOverScene";
 import { GameScene } from "./scenes/GameScene";
 import { MenuScene } from "./scenes/MenuScene";
 import { PauseScene } from "./scenes/PauseScene";
+import { MessageScene } from "./scenes/MessageScene";
 import { SettingsScene } from "./scenes/SettingsScene";
 
 async function loadFonts(): Promise<void> {
@@ -27,6 +30,8 @@ async function loadFonts(): Promise<void> {
 }
 
 installDebugOverlay();
+// Before awaiting anything: the browser may fire the install prompt event right away.
+captureInstallPrompt();
 await loadFonts();
 
 const game = new Phaser.Game({
@@ -47,10 +52,11 @@ const game = new Phaser.Game({
         activePointers: 2,
     },
     disableContextMenu: true,
-    scene: [BootScene, MenuScene, GameScene, PauseScene, GameOverScene, SettingsScene],
+    scene: [BootScene, MenuScene, GameScene, PauseScene, GameOverScene, SettingsScene, MessageScene],
 });
 
 game.events.once(Phaser.Core.Events.READY, () => reportRenderer(game));
+watchLayout(game);
 
 if (import.meta.env.DEV) {
     // Handle for debugging and automated checks from the browser console.

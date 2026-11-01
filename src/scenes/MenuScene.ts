@@ -1,13 +1,15 @@
 import Phaser from "phaser";
 import { audio } from "../audio/Audio";
 import { COLORS, HEIGHT, SCENES, WIDTH } from "../config";
-import { textCss, theme, toCss } from "../theme";
 import { DIFFICULTIES, type Difficulty, MODES, type Mode } from "../core/types";
 import { difficultyLabel, modeLabel, t } from "../i18n";
-import { getHighScore, getLastSelection, setLastSelection } from "../storage";
+import { installOption, onInstallChange, promptInstall } from "../install";
+import { getHighScore, getLastSelection, getSettings, setLastSelection, updateSettings } from "../storage";
+import { STYLES, styleLabel, textCss, theme, toCss } from "../theme";
 import { Background } from "../ui/Background";
-import { MenuList } from "../ui/MenuList";
+import { type MenuItem, MenuList } from "../ui/MenuList";
 import { applyNeonPost, fadeIn, gameText, transitionTo } from "../ui/neon";
+import type { MessageSceneData } from "./MessageScene";
 import type { SettingsSceneData } from "./SettingsScene";
 
 export interface GameSettings {
@@ -15,35 +17,55 @@ export interface GameSettings {
     difficulty: Difficulty;
 }
 
+export interface MenuSceneData {
+    /** Item to focus after a self-restart (style preview, install availability change). */
+    focus?: number;
+    /** Skip the fade-in: restarts for a live style preview must feel instant. */
+    instant?: boolean;
+}
+
 function cycle<T>(values: readonly T[], current: T, delta: number): T {
     const index = values.indexOf(current);
     return values[(index + delta + values.length) % values.length];
 }
+
+const ITEM_SPACING = 52;
 
 /** The "press any key" title only shows once per session; it doubles as the audio unlock gesture. */
 let pressedStart = false;
 
 export class MenuScene extends Phaser.Scene {
     private settings!: GameSettings;
-    private bestText!: Phaser.GameObjects.Text;
+    private bestText: Phaser.GameObjects.Text | null = null;
 
     constructor() {
         super(SCENES.menu);
     }
 
-    create(): void {
+    create(data: MenuSceneData = {}): void {
         this.settings = getLastSelection();
+        this.bestText = null;
         audio.setChiptune(theme().pixel);
         // Letterbox bars around the canvas follow the style (light LCD palettes would look framed in black).
         document.body.style.background = toCss(theme().background);
         new Background(this);
         this.createTitle();
         applyNeonPost(this);
-        fadeIn(this);
+        if (!data.instant) {
+            fadeIn(this);
+        }
+
+        // A new install option (prompt became available, app got installed) rebuilds the menu.
+        const unsubscribe = onInstallChange(() => {
+            if (pressedStart && this.scene.isActive()) {
+                this.restart({ instant: true });
+            }
+        });
+        this.events.once(Phaser.Scenes.Events.SHUTDOWN, unsubscribe);
 
         if (pressedStart) {
             audio.setMusic("menu");
-            this.createMenu();
+            this.createPanel(data.focus);
         } else {
             this.createPressStart();
         }
@@ -65,68 +87,158 @@ export class MenuScene extends Phaser.Scene {
             this.tweens.killTweensOf(prompt);
             this.tweens.add({ targets: prompt, alpha: 0, scale: 1.4, duration: 200, onComplete: () => prompt.destroy() });
             // Next frame, so the same key press is not also read by the menu.
-            this.time.delayedCall(60, () => this.createMenu());
+            this.time.delayedCall(60, () => this.createPanel());
         };
 
         this.input.keyboard?.once(Phaser.Input.Keyboard.Events.ANY_KEY_DOWN, start);
         this.input.once(Phaser.Input.Events.POINTER_UP, start);
     }
 
-    private createMenu(): void {
-        // Panel keeps the options legible: glass over the neon grid, a hard-edged box in Old School.
-        // Old School leaves room inside the bezel frame for the hint line.
-        const panelY = HEIGHT * (theme().pixel ? 0.55 : 0.6);
-        const panelH = 300;
-        const panel = this.add.graphics();
-        const style = theme();
-        if (style.pixel) {
-            panel.fillStyle(style.background, 1);
-            panel.fillRect(WIDTH / 2 - 300, panelY, 600, panelH);
-            panel.lineStyle(4, style.text.text, 1);
-            panel.strokeRect(WIDTH / 2 - 300, panelY, 600, panelH);
+    /** First launch asks for a style; afterwards the regular menu. */
+    private createPanel(focus?: number): void {
+        if (getSettings().styleChosen) {
+            this.createMenu(focus);
         } else {
-            panel.fillStyle(COLORS.bgTop, 0.78);
-            panel.fillRoundedRect(WIDTH / 2 - 300, panelY, 600, panelH, 18);
-            panel.lineStyle(2, COLORS.purple, 0.7);
-            panel.strokeRoundedRect(WIDTH / 2 - 300, panelY, 600, panelH, 18);
+            this.createStyleChooser();
+        }
+    }
+
+    /**
+     * First-launch style picker. Moving the focus applies that style and rebuilds the whole screen,
+     * so the player sees exactly what they pick.
+     */
+    private createStyleChooser(): void {
+        const items: MenuItem[] = STYLES.map((style) => ({
+            label: () => styleLabel(style),
+            onSelect: () => {
+                updateSettings({ styleChosen: true });
+                this.restart();
+            },
+        }));
+
+        const top = this.drawPanel(items.length, true);
+        gameText(this, WIDTH / 2, top + 36, t("chooseStyle"), { size: 22, color: "highlight", glow: 8 });
+
+        new MenuList(this, WIDTH / 2, top + 36 + ITEM_SPACING, items, {
+            spacing: ITEM_SPACING,
+            focus: STYLES.indexOf(getSettings().style),
+            onFocus: (index) => {
+                updateSettings({ style: STYLES[index] });
+                this.restart({ instant: true });
+            },
+        });
+    }
+
+    private createMenu(focus?: number): void {
+        const items: MenuItem[] = [
+            { label: () => t("play"), onSelect: () => this.startGame(menu) },
+            {
+                label: () => `${t("mode")}: ${modeLabel(this.settings.mode)}`,
+                onChange: (delta) => {
+                    this.settings.mode = cycle(MODES, this.settings.mode, delta);
+                },
+            },
+            {
+                label: () => `${t("difficulty")}: ${difficultyLabel(this.settings.difficulty)}`,
+                onChange: (delta) => {
+                    this.settings.difficulty = cycle(DIFFICULTIES, this.settings.difficulty, delta);
+                },
+            },
+            {
+                label: () => `${t("style")}: ${styleLabel(getSettings().style)}`,
+                onChange: (delta) => {
+                    updateSettings({ style: cycle(STYLES, getSettings().style, delta) });
+                    // Rebuild in the new style right away; keep focus on this item.
+                    this.restart({ instant: true, focus: 3 });
+                },
+            },
+            { label: () => t("settings"), onSelect: () => this.openSettings() },
+        ];
+
+        const install = installOption();
+        if (install) {
+            items.push({ label: () => t("install"), onSelect: () => this.install(install) });
         }
 
-        const menu: MenuList = new MenuList(
-            this,
-            WIDTH / 2,
-            panelY + 44,
-            [
-                { label: () => t("play"), onSelect: () => this.startGame(menu) },
-                {
-                    label: () => `${t("mode")}: ${modeLabel(this.settings.mode)}`,
-                    onChange: (delta) => {
-                        this.settings.mode = cycle(MODES, this.settings.mode, delta);
-                    },
-                },
-                {
-                    label: () => `${t("difficulty")}: ${difficultyLabel(this.settings.difficulty)}`,
-                    onChange: (delta) => {
-                        this.settings.difficulty = cycle(DIFFICULTIES, this.settings.difficulty, delta);
-                    },
-                },
-                { label: () => t("settings"), onSelect: () => this.openSettings() },
-            ],
-            { spacing: 56, onUpdate: () => this.updateBest() },
-        );
+        const top = this.drawPanel(items.length, false);
+        const menu: MenuList = new MenuList(this, WIDTH / 2, top + 40, items, {
+            spacing: ITEM_SPACING,
+            focus,
+            onUpdate: () => this.updateBest(),
+        });
 
-        this.bestText = gameText(this, WIDTH / 2, panelY + panelH - 36, "", { size: 18, color: "highlight", glow: 6 });
+        this.bestText = gameText(this, WIDTH / 2, top + 40 + items.length * ITEM_SPACING, "", {
+            size: 18,
+            color: "highlight",
+            glow: 6,
+        });
         this.updateBest();
 
         if (!this.sys.game.device.input.touch) {
-            const hintY = theme().pixel ? panelY + panelH + 28 : HEIGHT - 22;
-            gameText(this, WIDTH / 2, hintY, t("menuHint"), { size: 14, color: "dim", glow: 0, weight: 400 });
+            gameText(this, WIDTH / 2, HEIGHT - (theme().pixel ? 52 : 22), t("menuHint"), {
+                size: 14,
+                color: "dim",
+                glow: 0,
+                weight: 400,
+            });
         }
+    }
+
+    /**
+     * Options panel anchored to the bottom so it never collides with the title, whatever the screen height.
+     * Returns the panel's top y.
+     */
+    private drawPanel(itemCount: number, withHeading: boolean): number {
+        const style = theme();
+        const height = (itemCount + 1) * ITEM_SPACING + (withHeading ? 20 : 30);
+        // Old School keeps clear of the bezel frame (inset 32 px); desktop leaves room for the key hint.
+        const touch = this.sys.game.device.input.touch;
+        const bottomPad = style.pixel ? (touch ? 60 : 80) : touch ? 40 : 48;
+        const top = Math.round(HEIGHT - height - bottomPad);
+        const left = WIDTH / 2 - 300;
+        const panel = this.add.graphics();
+
+        // Glass over the neon grid, a hard-edged box in Old School.
+        if (style.pixel) {
+            panel.fillStyle(style.background, 1);
+            panel.fillRect(left, top, 600, height);
+            panel.lineStyle(4, style.text.text, 1);
+            panel.strokeRect(left, top, 600, height);
+        } else {
+            panel.fillStyle(COLORS.bgTop, 0.78);
+            panel.fillRoundedRect(left, top, 600, height, 18);
+            panel.lineStyle(2, COLORS.purple, 0.7);
+            panel.strokeRoundedRect(left, top, 600, height, 18);
+        }
+
+        return top;
+    }
+
+    private async install(option: "prompt" | "ios"): Promise<void> {
+        if (option === "prompt") {
+            await promptInstall();
+            return;
+        }
+
+        const data: MessageSceneData = {
+            from: SCENES.menu,
+            title: t("install"),
+            lines: [t("iosStep1"), t("iosStep2"), t("iosStep3")],
+        };
+        this.scene.launch(SCENES.message, data);
+        this.scene.pause();
     }
 
     private openSettings(): void {
         const data: SettingsSceneData = { from: SCENES.menu, fromMenu: true };
         this.scene.launch(SCENES.settings, data);
         this.scene.pause();
+    }
+
+    /** Self-restart that keeps unsaved mode and difficulty choices. */
+    private restart(data: MenuSceneData = {}): void {
+        setLastSelection(this.settings.mode, this.settings.difficulty);
+        this.scene.restart(data);
     }
 
     private createTitle(): void {
@@ -165,7 +277,7 @@ export class MenuScene extends Phaser.Scene {
 
     private updateBest(): void {
         const best = getHighScore(this.settings.mode, this.settings.difficulty);
-        this.bestText.setText(`${t("best")}  ${best.toString().padStart(6, "0")}`);
+        this.bestText?.setText(`${t("best")}  ${best.toString().padStart(6, "0")}`);
     }
 
     private startGame(menu: MenuList): void {

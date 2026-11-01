@@ -128,9 +128,9 @@ export class Background {
         const style = theme();
         const cell = 20;
         const cols = 22;
-        const rows = 6;
+        const rows = 4;
         const left = (WIDTH - cols * cell) / 2;
-        const top = HEIGHT * 0.36;
+        const top = HEIGHT * 0.33;
 
         // Perimeter of a cols x rows rectangle, clockwise.
         const path: { x: number; y: number }[] = [];

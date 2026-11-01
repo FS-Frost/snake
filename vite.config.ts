@@ -23,7 +23,8 @@ export default defineConfig({
                 start_url: ".",
                 scope: ".",
                 display: "fullscreen",
-                orientation: "portrait",
+                // Portrait and landscape both have their own layout.
+                orientation: "any",
                 background_color: "#05040f",
                 theme_color: "#05040f",
                 icons: [

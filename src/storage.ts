@@ -19,6 +19,8 @@ export interface Settings {
     dpadSide: DpadSide;
     language: Language;
     style: Style;
+    /** False until the player picks a style on first launch. */
+    styleChosen: boolean;
 }
 
 interface SaveData {
@@ -37,9 +39,11 @@ const defaultSettings: Settings = {
     // Respect the OS accessibility setting until the player chooses otherwise.
     shake: !reducedMotion,
     flash: !reducedMotion,
-    touch: "swipe",
-    dpadSide: "center",
+    // D-pad on the right by default: most players hold the phone with the right thumb free.
+    touch: "dpad",
+    dpadSide: "right",
     style: "neon",
+    styleChosen: false,
     language: navigator.language.toLowerCase().startsWith("es") ? "es" : "en",
 };
 

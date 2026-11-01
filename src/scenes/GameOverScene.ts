@@ -13,7 +13,11 @@ export class GameOverScene extends Phaser.Scene {
         super(SCENES.gameOver);
     }
 
+    /** Kept so a relayout can rebuild this screen with the same results. */
+    lastData: GameOverData | null = null;
+
     create(data: GameOverData): void {
+        this.lastData = data;
         createBackdrop(this, 0.8);
         this.createTitle(data.won ? t("victory") : t("gameOver"), data.won ? "highlight" : "danger");
 
@@ -32,7 +36,9 @@ export class GameOverScene extends Phaser.Scene {
         const seconds = Math.floor(data.timeMs / 1000);
         const time = `${Math.floor(seconds / 60)}:${(seconds % 60).toString().padStart(2, "0")}`;
         const stats = `${t("best")} ${data.best}  ·  ${t("level")} ${data.level}  ·  ${t("length")} ${data.length}  ·  ${t("time")} ${time}`;
-        gameText(this, WIDTH / 2, HEIGHT * 0.45, stats, { size: 16, color: "dim", glow: 0, weight: 400 });
+        gameText(this, WIDTH / 2, HEIGHT * 0.45, stats, { size: 16, color: "dim", glow: 0, weight: 400 })
+            .setWordWrapWidth(Math.min(WIDTH, 720) - 80)
+            .setAlign("center");
 
         if (data.isRecord) {
             const badge = gameText(this, WIDTH / 2, HEIGHT * 0.52, t("newRecord"), {

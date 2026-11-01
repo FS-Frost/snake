@@ -26,6 +26,8 @@ Snake game built to feel like a native game (no DOM UI, no `alert`). Two looks: 
 - `GameScene` runs a fixed timestep (accumulator) decoupled from render FPS and interpolates head/tail between ticks.
 - `src/ui/`: `gameText` (text in the active style; colors are `TextRole`s), `applyNeonPost` (camera bloom), `MenuList` (keyboard/mouse/touch menu), `Background`, overlay helpers.
 - `src/i18n.ts`: every user-visible string goes through `t()`; keep `en` and `es` in sync.
+- `src/install.ts`: PWA install offer. `beforeinstallprompt` is captured in `main.ts` before anything is awaited; iOS gets manual steps (`MessageScene`). Nothing is offered when running standalone.
+- First launch shows a style chooser (live preview) until `styleChosen`; afterwards STYLE is a main-menu item.
 - `src/storage.ts`: localStorage wrapped in try/catch; the game must run without storage. Holds high scores and `Settings` (volumes, bloom/shake/flash toggles, touch scheme, language). Shake/flash default off under `prefers-reduced-motion`.
 - Use `shake`, `flash`, `vibrate` from `src/ui/neon.ts`, never the camera methods directly, so settings are respected.
 - Bloom (Phaser 4 filters) renders black on some Android GPUs. `BootScene` probes it once per launch (gray square below the bloom threshold, `readPixels`) and `isBloomAvailable` gates it; the Glow setting shows N/A there. Always add bloom through `applyNeonPost`/`addBloom`.
@@ -35,7 +37,9 @@ Snake game built to feel like a native game (no DOM UI, no `alert`). Two looks: 
 ## Conventions
 
 - 4-space indent, double quotes, Prettier.
-- Logical resolution 720x860 (`src/config.ts`), scaled with `Scale.FIT`. Position everything in logical coordinates. On portrait touch devices (`TOUCH_LAYOUT`) the height grows to the screen aspect (1100-1600) and the strip below the board holds touch controls; position by `HEIGHT`/`CONTROLS_Y`, not hardcoded 860.
+- Layout (`src/config.ts`): `LAYOUT` is `desktop` (720x860), `portrait` (touch upright: 720 x screen aspect, controls strip below the board) or `landscape` (touch sideways: 760 tall, board centered, HUD column at `HUD_X`, controls column at `CONTROLS_X` on the D-pad side). Values are `export let` live bindings recomputed by `applyLayout()`; always read `WIDTH`/`HEIGHT`/`BOARD_X`... at scene create, never cache them at module load.
+- `src/relayout.ts`: on resize/rotation, recomputes the layout, resizes the canvas and restarts visible scenes. A running match is passed to `GameScene` as `resume` and lands on the pause menu.
+- `gameText` enforces a minimum on-screen size (12 CSS px neon, 10 pixel), so small labels grow on phones: give HUD texts room (centered columns), never tight fixed offsets.
 - Colors and layout constants live in `src/config.ts`; do not hardcode them in scenes.
 - Overlays cannot fade the paused `Game` camera; use `exitOverlay` in `src/ui/overlay.ts`.
 - Headless browser checks: software WebGL (swiftshader) runs ~20 FPS and makes frames lag behind input. Use the real GPU (`--use-angle=d3d11`) to judge visuals or timing. Leave ~40 ms between synthetic key presses: Phaser drops events with identical keyCode and timeStamp.

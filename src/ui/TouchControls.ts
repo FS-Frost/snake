@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { BOARD_H, BOARD_W, BOARD_X, BOARD_Y, CONTROLS_Y, TOUCH_LAYOUT, WIDTH } from "../config";
+import { BOARD_H, BOARD_W, BOARD_X, BOARD_Y, CONTROLS_X, CONTROLS_Y, LAYOUT, SIDE_W, WIDTH } from "../config";
 import { type Direction, DIRECTION_VECTORS } from "../core/types";
 import { t } from "../i18n";
 import { type DpadSide, getSettings } from "../storage";
@@ -13,7 +13,10 @@ const BUTTON_GAP = 108;
 
 const DIRECTIONS: readonly Direction[] = ["up", "down", "left", "right"];
 
-/** Horizontal center of the D-pad so the outer buttons keep a margin from the screen edge. */
+/** Full D-pad width at scale 1. */
+const DPAD_SPAN = (BUTTON_GAP + BUTTON_RADIUS) * 2;
+
+/** Portrait/desktop: horizontal center of the D-pad so the outer buttons keep a margin from the screen edge. */
 function dpadX(side: DpadSide): number {
     const reach = BUTTON_GAP + BUTTON_RADIUS + 24;
     return side === "left" ? BOARD_X + reach - 24 : side === "right" ? BOARD_X + BOARD_W - reach + 24 : WIDTH / 2;
@@ -40,8 +43,13 @@ export class TouchControls {
 
         if (getSettings().touch === "dpad") {
             this.createDpad();
-        } else if (TOUCH_LAYOUT) {
-            gameText(scene, WIDTH / 2, CONTROLS_Y, t("swipeHint"), { size: 18, color: "dim", glow: 0, weight: 400 });
+        } else if (LAYOUT !== "desktop") {
+            const x = LAYOUT === "landscape" ? CONTROLS_X : WIDTH / 2;
+            const hint = gameText(scene, x, CONTROLS_Y, t("swipeHint"), { size: 18, color: "dim", glow: 0, weight: 400 });
+            // Landscape column is narrow: wrap the hint instead of overflowing onto the board.
+            if (LAYOUT === "landscape") {
+                hint.setWordWrapWidth(SIDE_W - 40).setAlign("center");
+            }
         }
     }
 
@@ -72,14 +80,22 @@ export class TouchControls {
     }
 
     private createDpad(): void {
-        // Portrait phones: dedicated strip below the board. Otherwise a translucent pad over the bottom of the board.
-        const center = { x: dpadX(getSettings().dpadSide), y: TOUCH_LAYOUT ? CONTROLS_Y : BOARD_Y + BOARD_H - BUTTON_GAP - 20 };
-        const alpha = TOUCH_LAYOUT ? 1 : 0.45;
+        // Portrait: dedicated strip below the board. Landscape: side column, shrunk to fit.
+        // Desktop with a touchscreen: translucent pad over the bottom of the board.
+        const center =
+            LAYOUT === "landscape"
+                ? { x: CONTROLS_X, y: CONTROLS_Y }
+                : { x: dpadX(getSettings().dpadSide), y: LAYOUT === "portrait" ? CONTROLS_Y : BOARD_Y + BOARD_H - BUTTON_GAP - 20 };
+        const scale = LAYOUT === "landscape" ? Math.min(1, (SIDE_W - 24) / DPAD_SPAN) : 1;
+        const alpha = LAYOUT === "desktop" ? 0.45 : 1;
         const style = theme();
 
         for (const direction of DIRECTIONS) {
             const v = DIRECTION_VECTORS[direction];
-            const button = this.scene.add.graphics({ x: center.x + v.x * BUTTON_GAP, y: center.y + v.y * BUTTON_GAP });
+            const button = this.scene.add.graphics({
+                x: center.x + v.x * BUTTON_GAP * scale,
+                y: center.y + v.y * BUTTON_GAP * scale,
+            });
             button.fillStyle(style.board, 0.85);
             button.fillCircle(0, 0, BUTTON_RADIUS);
             button.lineStyle(3, style.text.primary, 0.9);
@@ -91,13 +107,13 @@ export class TouchControls {
             const back = { x: -v.x * 10, y: -v.y * 10 };
             button.fillStyle(style.text.primary, 1);
             button.fillTriangle(tip.x, tip.y, back.x + side.x, back.y + side.y, back.x - side.x, back.y - side.y);
-            button.setAlpha(alpha);
+            button.setAlpha(alpha).setScale(scale);
 
             button.setInteractive(new Phaser.Geom.Circle(0, 0, BUTTON_RADIUS), Phaser.Geom.Circle.Contains);
             button.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () => {
                 this.onTurn(direction);
                 vibrate(8);
-                this.scene.tweens.add({ targets: button, scale: 0.88, duration: 50, yoyo: true });
+                this.scene.tweens.add({ targets: button, scale: scale * 0.88, duration: 50, yoyo: true });
             });
         }
     }

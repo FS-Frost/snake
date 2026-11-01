@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { HEIGHT, TOUCH_LAYOUT, WIDTH } from "./config";
+import { HEIGHT, LAYOUT, WIDTH } from "./config";
 
 /**
  * URL switches for diagnosing device-specific rendering problems:
@@ -59,7 +59,7 @@ export function installDebugOverlay(): void {
     window.addEventListener("unhandledrejection", (event) => log(`REJECTION ${String(event.reason)}`));
 
     log(`UA ${navigator.userAgent}`);
-    log(`screen ${window.innerWidth}x${window.innerHeight} dpr=${window.devicePixelRatio} touchLayout=${TOUCH_LAYOUT} logical=${WIDTH}x${HEIGHT}`);
+    log(`screen ${window.innerWidth}x${window.innerHeight} dpr=${window.devicePixelRatio} layout=${LAYOUT} logical=${WIDTH}x${HEIGHT}`);
     log(`flags ${JSON.stringify(DEBUG)}`);
 }
 

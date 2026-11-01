@@ -20,6 +20,8 @@ export interface MenuListOptions {
     onBack?: () => void;
     /** Initially focused item. */
     focus?: number;
+    /** Called with the new index whenever the focus moves. */
+    onFocus?: (index: number) => void;
 }
 
 /**
@@ -31,6 +33,7 @@ export class MenuList {
     private readonly texts: Phaser.GameObjects.Text[];
     private readonly onUpdate?: () => void;
     private readonly onBack?: () => void;
+    private readonly onFocus?: (index: number) => void;
     private focus = 0;
     private enabled = true;
 
@@ -40,6 +43,7 @@ export class MenuList {
         this.items = items;
         this.onUpdate = options.onUpdate;
         this.onBack = options.onBack;
+        this.onFocus = options.onFocus;
         this.focus = Math.max(0, Math.min(items.length - 1, options.focus ?? 0));
 
         this.texts = items.map((item, index) => {
@@ -116,6 +120,7 @@ export class MenuList {
         audio.uiMove();
         this.render();
         this.onUpdate?.();
+        this.onFocus?.(index);
     }
 
     private change(delta: -1 | 1): void {

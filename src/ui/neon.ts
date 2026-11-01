@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { HEIGHT, WIDTH } from "../config";
 import { DEBUG } from "../debug";
 import { getSettings } from "../storage";
 import { type TextRole, textCss, theme } from "../theme";
@@ -10,6 +11,14 @@ export interface GameTextOptions {
     /** Glow radius in px (neon style only). 0 disables the glow. */
     glow?: number;
     align?: "left" | "center" | "right";
+}
+
+/** Smallest on-screen size in CSS px; below this, phone text becomes unreadable. */
+const MIN_SCREEN_PX = { neon: 12, pixel: 10 };
+
+/** How many CSS px one logical px takes with Scale.FIT. */
+function screenScale(): number {
+    return Math.min(window.innerWidth / WIDTH, window.innerHeight / HEIGHT);
 }
 
 /**
@@ -26,8 +35,13 @@ export function gameText(
     const style = theme();
     const css = textCss(color);
     const glowPx = style.glow ? glow : 0;
+    // Grow small labels so they stay legible when the canvas is scaled down (phones).
+    const minLogical = (style.pixel ? MIN_SCREEN_PX.pixel : MIN_SCREEN_PX.neon) / screenScale();
+    const scaled = style.pixel ? size * style.fontScale : size;
     // Pixel fonts stay sharp on multiples of 4 px.
-    const fontSize = style.pixel ? Math.max(8, Math.round((size * style.fontScale) / 4) * 4) : size;
+    const fontSize = style.pixel
+        ? Math.max(8, Math.ceil(Math.max(scaled, minLogical) / 4) * 4)
+        : Math.ceil(Math.max(scaled, minLogical));
 
     const text = scene.add.text(x, y, content, {
         fontFamily: style.font,

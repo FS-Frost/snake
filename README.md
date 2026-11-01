@@ -6,7 +6,7 @@
 
 https://fs-frost.github.io/snake/
 
-Install it from the browser ("Install app" / "Add to Home Screen") to play offline and fullscreen.
+Install it with **INSTALL APP** in the main menu (Android, desktop Chrome/Edge) or Safari's *Share > Add to Home Screen* on iPhone, to play offline and fullscreen.
 
 ## Features
 
@@ -21,7 +21,7 @@ Install it from the browser ("Install app" / "Add to Home Screen") to play offli
 - **Procedural audio:** synthwave soundtrack that speeds up with the game, plus synthesized sound effects. No audio files.
 - **Two looks:** Neon (synthwave, glow, smooth movement) or Old School in three palettes (Game Boy, Nokia, 8-bit console) with pixel art, cell-by-cell movement and chiptune audio. Purely visual: rules and scores are the same.
 - **Settings:** music/SFX volume, glow, screen shake, flashes (off by default with *reduce motion*), touch controls, style, language (English/Spanish).
-- **Touch:** swipe anywhere or use the on-screen D-pad, placed left, center or right. Portrait phones get a dedicated control strip below the board.
+- **Touch:** on-screen D-pad (right by default; left or center in settings) or swipe anywhere. Portrait phones get a control strip below the board; landscape puts the HUD and the D-pad in columns beside it, and rotating mid-game keeps the match.
 
 ## Controls
 
