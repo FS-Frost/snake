@@ -1,28 +1,16 @@
 import Phaser from "phaser";
-import {
-    BOARD_H,
-    BOARD_W,
-    BOARD_X,
-    BOARD_Y,
-    CELL,
-    COLORS,
-    CSS,
-    GRID_COLS,
-    GRID_ROWS,
-    HEIGHT,
-    SCENES,
-    WIDTH,
-} from "../config";
+import { BOARD_H, BOARD_W, BOARD_X, BOARD_Y, GRID_COLS, GRID_ROWS, SCENES, WIDTH } from "../config";
 import { audio } from "../audio/Audio";
 import { SPEED_CURVES, ticksPerSecond } from "../core/difficulty";
 import { type AdvanceResult, SnakeGame, type StepResult } from "../core/SnakeGame";
-import { type Cell, DIRECTION_VECTORS, type Direction } from "../core/types";
+import type { Cell, Direction } from "../core/types";
 import { difficultyLabel, itemLabel, modeLabel, t } from "../i18n";
 import { getHighScore, getSettings, submitScore } from "../storage";
-import { TEXTURES } from "../ui/Background";
-import { applyNeonPost, fadeIn, flash, neonText, shake, vibrate } from "../ui/neon";
+import { type TextRole, theme } from "../theme";
+import { addBackdrop, particleTexture } from "../ui/Background";
+import { applyNeonPost, fadeIn, flash, gameText, shake, vibrate } from "../ui/neon";
 import { TouchControls } from "../ui/TouchControls";
-import { cellX, cellY, ITEM_COLORS, ItemView, ObstacleView, PowerHud } from "./GameViews";
+import { cellX, cellY, drawBoard, FoodView, ItemView, ObstacleView, PowerHud, SnakeView } from "./GameViews";
 import type { GameSettings } from "./MenuScene";
 
 type Phase = "countdown" | "playing" | "dying" | "over";
@@ -52,7 +40,6 @@ const KEY_DIRECTIONS: Record<string, Direction> = {
 /** Large frame gaps (tab switch, debugger) must not fast-forward the snake into a wall. */
 const MAX_FRAME_MS = 250;
 const COUNTDOWN_STEP_MS = 550;
-const SEGMENT_PADDING = 3;
 
 export class GameScene extends Phaser.Scene {
     private settings!: GameSettings;
@@ -62,8 +49,8 @@ export class GameScene extends Phaser.Scene {
     private elapsedMs = 0;
     private best = 0;
 
-    private snakeGfx!: Phaser.GameObjects.Graphics;
-    private foodGfx!: Phaser.GameObjects.Graphics;
+    private snakeView!: SnakeView;
+    private foodView!: FoodView;
     private sparks!: Phaser.GameObjects.Particles.ParticleEmitter;
     private scoreText!: Phaser.GameObjects.Text;
     private timeText!: Phaser.GameObjects.Text;
@@ -73,8 +60,6 @@ export class GameScene extends Phaser.Scene {
     private obstacleView!: ObstacleView;
     private powerHud!: PowerHud;
 
-    private foodSpawnedAt = 0;
-    private lastFood: Cell | null = null;
     /** Segments already blown up during the death animation. */
     private explodedSegments = 0;
 
@@ -95,21 +80,22 @@ export class GameScene extends Phaser.Scene {
         this.elapsedMs = 0;
         this.explodedSegments = 0;
         this.best = getHighScore(settings.mode, settings.difficulty);
-        this.lastFood = null;
 
-        this.add.image(0, 0, TEXTURES.sky).setOrigin(0).setDisplaySize(WIDTH, HEIGHT);
-        this.drawBoard();
+        addBackdrop(this);
+        drawBoard(this, settings.mode);
         this.powerHud = new PowerHud(this, BOARD_X + 196, 82, BOARD_Y + BOARD_H + 32);
         this.obstacleView = new ObstacleView(this);
-        this.foodGfx = this.add.graphics();
+        this.foodView = new FoodView(this);
         this.itemView = new ItemView(this);
-        this.snakeGfx = this.add.graphics();
-        this.sparks = this.add.particles(0, 0, TEXTURES.spark, {
+        this.snakeView = new SnakeView(this);
+        const pixel = theme().pixel;
+        this.sparks = this.add.particles(0, 0, particleTexture(), {
             speed: { min: 80, max: 260 },
             lifespan: { min: 300, max: 650 },
-            scale: { start: 0.9, end: 0 },
-            alpha: { start: 1, end: 0 },
-            blendMode: Phaser.BlendModes.ADD,
+            // Pixel squares keep their size and pop out; neon sparks shrink and fade.
+            scale: pixel ? 1 : { start: 0.9, end: 0 },
+            alpha: pixel ? 1 : { start: 1, end: 0 },
+            blendMode: theme().particleBlend,
             emitting: false,
         });
         this.createHud();
@@ -146,9 +132,11 @@ export class GameScene extends Phaser.Scene {
             }
         }
 
-        const alpha = this.phase === "playing" ? this.accumulator / this.logic.tickMs : 1;
-        this.renderSnake(alpha);
-        this.renderFood();
+        // Old School moves cell by cell, like the originals.
+        const alpha = this.phase === "playing" && !theme().pixel ? this.accumulator / this.logic.tickMs : 1;
+        const dying = this.phase === "dying" || this.phase === "over";
+        this.snakeView.render(this.logic, { alpha, dying, exploded: this.explodedSegments });
+        this.foodView.render(this.phase === "over" ? null : this.logic.food);
         this.itemView.render(this.phase === "over" ? null : this.logic.item, this.logic.clock);
         this.powerHud.update(this.logic);
         this.updateHud();
@@ -224,9 +212,9 @@ export class GameScene extends Phaser.Scene {
         const labels = ["3", "2", "1", t("go")];
         const touch = this.sys.game.device.input.touch;
         const hintText = !touch ? t("gameHint") : getSettings().touch === "swipe" ? t("swipeHint") : "";
-        const hint = neonText(this, WIDTH / 2, BOARD_Y + BOARD_H * 0.68, hintText, {
+        const hint = gameText(this, WIDTH / 2, BOARD_Y + BOARD_H * 0.68, hintText, {
             size: 16,
-            color: CSS.dim,
+            color: "dim",
             glow: 0,
             weight: 400,
         });
@@ -235,10 +223,10 @@ export class GameScene extends Phaser.Scene {
             this.time.delayedCall(index * COUNTDOWN_STEP_MS, () => {
                 const isLast = index === labels.length - 1;
                 audio.countdown(isLast);
-                const text = neonText(this, WIDTH / 2, BOARD_Y + BOARD_H / 2, label, {
+                const text = gameText(this, WIDTH / 2, BOARD_Y + BOARD_H / 2, label, {
                     size: isLast ? 96 : 120,
                     weight: 900,
-                    color: isLast ? CSS.yellow : CSS.cyan,
+                    color: isLast ? "highlight" : "primary",
                     glow: 24,
                 });
                 text.setScale(1.8).setAlpha(0);
@@ -270,7 +258,7 @@ export class GameScene extends Phaser.Scene {
 
     private handleAdvance(result: AdvanceResult): void {
         if (result.itemExpired) {
-            this.sparks.setParticleTint(COLORS.dim);
+            this.sparks.setParticleTint(theme().text.dim);
             this.sparks.explode(10, cellX(result.itemExpired.x), cellY(result.itemExpired.y));
             audio.itemExpire();
         }
@@ -284,8 +272,8 @@ export class GameScene extends Phaser.Scene {
     }
 
     /** Floating text that rises and fades. */
-    private popup(x: number, y: number, label: string, color: string, size = 20): void {
-        const text = neonText(this, x, y - 10, label, { size, color, glow: 10 });
+    private popup(x: number, y: number, label: string, color: TextRole, size = 20): void {
+        const text = gameText(this, x, y - 10, label, { size, color, glow: 10 });
         this.tweens.add({
             targets: text,
             y: y - 54,
@@ -301,12 +289,12 @@ export class GameScene extends Phaser.Scene {
         const x = cellX(head.x);
         const y = cellY(head.y);
 
-        this.sparks.setParticleTint(COLORS.magenta);
+        this.sparks.setParticleTint(theme().food);
         this.sparks.explode(18, x, y);
-        this.sparks.setParticleTint(COLORS.yellow);
+        this.sparks.setParticleTint(theme().text.highlight);
         this.sparks.explode(6, x, y);
 
-        this.popup(x, y, `+${result.points}`, CSS.yellow, this.logic.combo > 1 ? 24 : 20);
+        this.popup(x, y, `+${result.points}`, "highlight", this.logic.combo > 1 ? 24 : 20);
 
         this.tweens.add({ targets: this.scoreText, scale: 1.25, duration: 70, yoyo: true });
         shake(this, 80, 0.002);
@@ -320,20 +308,17 @@ export class GameScene extends Phaser.Scene {
         const head = this.logic.head;
         const x = cellX(head.x);
         const y = cellY(head.y);
-        const color = ITEM_COLORS[type];
-
-        this.sparks.setParticleTint(color);
+        this.sparks.setParticleTint(theme().items[type]);
         this.sparks.explode(type === "golden" ? 40 : 24, x, y);
         audio.powerUp(type);
         vibrate(20);
 
-        const css = `#${color.toString(16).padStart(6, "0")}`;
-        this.popup(x, y - 18, itemLabel(type), css, 22);
-        this.popup(x, y + 14, `+${result.points}`, CSS.yellow);
+        this.popup(x, y - 18, itemLabel(type), "text", 22);
+        this.popup(x, y + 14, `+${result.points}`, "highlight");
 
         switch (type) {
             case "golden":
-                flash(this, 120, COLORS.yellow);
+                flash(this, 120, theme().items.golden);
                 shake(this, 120, 0.004);
                 break;
             case "slowmo":
@@ -343,7 +328,7 @@ export class GameScene extends Phaser.Scene {
                 // Severed tail pieces burst where they were.
                 result.cut.forEach((cell, index) => {
                     this.time.delayedCall(index * 30, () => {
-                        this.sparks.setParticleTint(COLORS.purple);
+                        this.sparks.setParticleTint(theme().snakeBody[1]);
                         this.sparks.explode(8, cellX(cell.x), cellY(cell.y));
                     });
                 });
@@ -355,10 +340,10 @@ export class GameScene extends Phaser.Scene {
         audio.levelUp();
         this.obstacleView.add(cells);
 
-        const banner = neonText(this, WIDTH / 2, BOARD_Y + BOARD_H * 0.3, `${t("level")} ${this.logic.level}`, {
+        const banner = gameText(this, WIDTH / 2, BOARD_Y + BOARD_H * 0.3, `${t("level")} ${this.logic.level}`, {
             size: 56,
             weight: 900,
-            color: CSS.magenta,
+            color: "danger",
             glow: 20,
         });
         banner.setScale(0.4).setAlpha(0);
@@ -374,7 +359,7 @@ export class GameScene extends Phaser.Scene {
     private onDeath(): void {
         this.phase = "dying";
         shake(this, 380, 0.014);
-        flash(this, 180, COLORS.magenta);
+        flash(this, 180, theme().text.danger);
         vibrate([60, 40, 120]);
         audio.die();
         audio.setMusic("off");
@@ -388,7 +373,7 @@ export class GameScene extends Phaser.Scene {
             repeat: segments - 1,
             callback: () => {
                 const cell = this.logic.snake[this.explodedSegments];
-                this.sparks.setParticleTint(this.explodedSegments === 0 ? COLORS.white : COLORS.magenta);
+                this.sparks.setParticleTint(this.explodedSegments === 0 ? theme().snakeHead : theme().text.danger);
                 this.sparks.explode(this.explodedSegments === 0 ? 30 : 8, cellX(cell.x), cellY(cell.y));
                 this.explodedSegments++;
             },
@@ -399,13 +384,13 @@ export class GameScene extends Phaser.Scene {
 
     private onWin(): void {
         this.phase = "dying";
-        flash(this, 400, COLORS.yellow);
+        flash(this, 400, theme().text.highlight);
         audio.setMusic("off");
         audio.fanfare();
 
         for (let i = 0; i < 6; i++) {
             this.time.delayedCall(i * 180, () => {
-                this.sparks.setParticleTint(i % 2 === 0 ? COLORS.yellow : COLORS.cyan);
+                this.sparks.setParticleTint(i % 2 === 0 ? theme().text.highlight : theme().text.primary);
                 this.sparks.explode(40, Phaser.Math.Between(BOARD_X, BOARD_X + BOARD_W), Phaser.Math.Between(BOARD_Y, BOARD_Y + BOARD_H));
             });
         }
@@ -431,205 +416,47 @@ export class GameScene extends Phaser.Scene {
         this.scene.pause();
     }
 
-    // ---------------------------------------------------------------- drawing
-
-    private drawBoard(): void {
-        const g = this.add.graphics();
-        g.fillStyle(COLORS.board, 0.92);
-        g.fillRect(BOARD_X, BOARD_Y, BOARD_W, BOARD_H);
-
-        // Dot grid at cell corners reads cleaner than full lines.
-        g.fillStyle(COLORS.grid, 1);
-        for (let y = 1; y < GRID_ROWS; y++) {
-            for (let x = 1; x < GRID_COLS; x++) {
-                g.fillCircle(BOARD_X + x * CELL, BOARD_Y + y * CELL, 1.5);
-            }
-        }
-
-        // Border tells the rules: solid magenta walls kill, dashed cyan edges let you through.
-        if (this.settings.mode === "classic") {
-            g.lineStyle(4, COLORS.magenta, 1);
-            g.strokeRect(BOARD_X - 2, BOARD_Y - 2, BOARD_W + 4, BOARD_H + 4);
-        } else {
-            g.fillStyle(COLORS.cyan, 0.85);
-            const dash = 14;
-            const gap = 10;
-            for (let d = 0; d < BOARD_W; d += dash + gap) {
-                const w = Math.min(dash, BOARD_W - d);
-                g.fillRect(BOARD_X + d, BOARD_Y - 4, w, 3);
-                g.fillRect(BOARD_X + d, BOARD_Y + BOARD_H + 1, w, 3);
-            }
-            for (let d = 0; d < BOARD_H; d += dash + gap) {
-                const h = Math.min(dash, BOARD_H - d);
-                g.fillRect(BOARD_X - 4, BOARD_Y + d, 3, h);
-                g.fillRect(BOARD_X + BOARD_W + 1, BOARD_Y + d, 3, h);
-            }
-        }
-    }
-
-    /**
-     * Draws the snake as one continuous tube through cell centers. Only the head and the tail
-     * are interpolated; every joint in between sits on a real cell, so corners stay crisp.
-     */
-    private renderSnake(alpha: number): void {
-        const g = this.snakeGfx;
-        const { snake, previousSnake } = this.logic;
-        const dying = this.phase === "dying" || this.phase === "over";
-        g.clear();
-        // Ghost: translucent and flickering while it can pass through itself.
-        g.setAlpha(this.logic.isActive("ghost") && !dying ? 0.45 + Math.sin(this.time.now / 70) * 0.15 : 1);
-
-        if (snake.length === 0) {
-            return;
-        }
-
-        const lerpCell = (from: Cell | undefined, to: Cell) => {
-            // Wrapped this tick (or no history): snap instead of sliding across the board.
-            const start = from && Math.abs(to.x - from.x) <= 1 && Math.abs(to.y - from.y) <= 1 ? from : to;
-            return {
-                x: cellX(start.x + (to.x - start.x) * alpha),
-                y: cellY(start.y + (to.y - start.y) * alpha),
-            };
-        };
-
-        const last = snake.length - 1;
-        const points = [lerpCell(previousSnake[0], snake[0])];
-        for (let i = 1; i <= last; i++) {
-            points.push({ x: cellX(snake[i].x), y: cellY(snake[i].y) });
-        }
-        if (last > 0) {
-            points.push(lerpCell(previousSnake[last], snake[last]));
-        }
-
-        const headColor = Phaser.Display.Color.ValueToColor(COLORS.cyan);
-        const tailColor = Phaser.Display.Color.ValueToColor(COLORS.purple);
-        const maxThickness = CELL - SEGMENT_PADDING * 2 - 4;
-
-        // Tail first so the head is drawn on top.
-        for (let i = points.length - 1; i >= 1; i--) {
-            if (dying && i - 1 < this.explodedSegments) {
-                continue;
-            }
-
-            const a = points[i - 1];
-            const b = points[i];
-            const mix = Phaser.Display.Color.Interpolate.ColorWithColor(headColor, tailColor, points.length, i);
-            const color = dying ? COLORS.magenta : Phaser.Display.Color.GetColor(mix.r, mix.g, mix.b);
-            // Tapers over the last few joints.
-            const thickness = maxThickness * Math.min(1, 0.4 + (points.length - 1 - i) * 0.1);
-
-            g.fillStyle(color, 1);
-            g.fillCircle(b.x, b.y, thickness / 2);
-
-            // A gap longer than one cell means a wrap: two separate tube pieces, no line across the board.
-            if (Math.abs(a.x - b.x) <= CELL + 0.5 && Math.abs(a.y - b.y) <= CELL + 0.5) {
-                g.lineStyle(thickness, color, 1);
-                g.lineBetween(a.x, a.y, b.x, b.y);
-            }
-        }
-
-        if (dying && this.explodedSegments > 0) {
-            return;
-        }
-
-        const head = points[0];
-        const size = CELL - SEGMENT_PADDING * 2;
-        g.fillStyle(dying ? COLORS.magenta : COLORS.white, 1);
-        g.fillRoundedRect(head.x - size / 2, head.y - size / 2, size, size, 9);
-
-        if (!dying) {
-            this.drawEyes(head);
-        }
-    }
-
-    /** `head` is the center of the head. */
-    private drawEyes(head: { x: number; y: number }): void {
-        const g = this.snakeGfx;
-        const v = DIRECTION_VECTORS[this.logic.direction];
-        const cx = head.x + v.x * 4;
-        const cy = head.y + v.y * 4;
-        // Eyes sit side by side, perpendicular to the heading.
-        const px = -v.y * 6;
-        const py = v.x * 6;
-
-        g.fillStyle(COLORS.board, 1);
-        g.fillCircle(cx + px, cy + py, 3);
-        g.fillCircle(cx - px, cy - py, 3);
-    }
-
-    private renderFood(): void {
-        const g = this.foodGfx;
-        const food = this.logic.food;
-        g.clear();
-
-        if (!food || this.phase === "over") {
-            return;
-        }
-
-        if (food !== this.lastFood) {
-            this.lastFood = food;
-            this.foodSpawnedAt = this.time.now;
-        }
-
-        const now = this.time.now;
-        const spawn = Phaser.Math.Easing.Back.Out(Math.min(1, (now - this.foodSpawnedAt) / 280));
-        const pulse = 1 + Math.sin(now / 140) * 0.08;
-        const x = cellX(food.x);
-        const y = cellY(food.y);
-        const radius = CELL * 0.3 * spawn * pulse;
-
-        // Expanding ring loop.
-        const ring = (now % 900) / 900;
-        g.lineStyle(2, COLORS.magenta, (1 - ring) * 0.8);
-        g.strokeCircle(x, y, radius + ring * CELL * 0.5);
-
-        g.fillStyle(COLORS.magenta, 1);
-        g.fillCircle(x, y, radius);
-        g.fillStyle(COLORS.white, 0.9);
-        g.fillCircle(x - radius * 0.3, y - radius * 0.3, radius * 0.3);
-    }
-
     // ---------------------------------------------------------------- HUD
 
     private createHud(): void {
         const labelY = 44;
         const valueY = 82;
-        const label = { size: 13, color: CSS.dim, glow: 0, weight: 400 } as const;
+        const label = { size: 13, color: "dim", glow: 0, weight: 400 } as const;
 
         // Small glow on numbers: big blur turns digits into blobs under the bloom.
-        neonText(this, BOARD_X, labelY, t("score"), { ...label, align: "left" });
-        this.scoreText = neonText(this, BOARD_X, valueY, "0", {
+        gameText(this, BOARD_X, labelY, t("score"), { ...label, align: "left" });
+        this.scoreText = gameText(this, BOARD_X, valueY, "0", {
             size: 34,
-            color: CSS.cyan,
+            color: "primary",
             weight: 500,
             glow: 5,
             align: "left",
         });
 
-        neonText(this, WIDTH / 2, labelY, t("time"), label);
-        this.timeText = neonText(this, WIDTH / 2, valueY, "00:00", { size: 28, color: CSS.white, weight: 400, glow: 0 });
+        gameText(this, WIDTH / 2, labelY, t("time"), label);
+        this.timeText = gameText(this, WIDTH / 2, valueY, "00:00", { size: 28, color: "text", weight: 400, glow: 0 });
 
         const bestX = BOARD_X + BOARD_W - 64;
-        neonText(this, bestX, labelY, t("best"), { ...label, align: "right" });
-        this.bestText = neonText(this, bestX, valueY, String(this.best), {
+        gameText(this, bestX, labelY, t("best"), { ...label, align: "right" });
+        this.bestText = gameText(this, bestX, valueY, String(this.best), {
             size: 28,
-            color: CSS.yellow,
+            color: "highlight",
             weight: 500,
             glow: 5,
             align: "right",
         });
 
         // Pause button, needed on touch screens without an ESC key.
-        const pauseButton = neonText(this, BOARD_X + BOARD_W - 18, 64, "II", { size: 30, color: CSS.cyan, weight: 900 });
+        const pauseButton = gameText(this, BOARD_X + BOARD_W - 18, 64, "II", { size: 30, color: "primary", weight: 900 });
         pauseButton.setInteractive({ useHandCursor: true });
         pauseButton.on(Phaser.Input.Events.GAMEOBJECT_POINTER_UP, () => this.pause());
 
         const footerY = BOARD_Y + BOARD_H + 32;
         const tag = `${modeLabel(this.settings.mode)}  ·  ${difficultyLabel(this.settings.difficulty)}`;
-        neonText(this, BOARD_X, footerY, tag, { size: 14, color: CSS.purple, glow: 6, align: "left" });
-        this.speedText = neonText(this, BOARD_X + BOARD_W, footerY, "", {
+        gameText(this, BOARD_X, footerY, tag, { size: 14, color: "secondary", glow: 6, align: "left" });
+        this.speedText = gameText(this, BOARD_X + BOARD_W, footerY, "", {
             size: 14,
-            color: CSS.purple,
+            color: "secondary",
             glow: 6,
             align: "right",
         });

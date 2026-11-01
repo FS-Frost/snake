@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Snake game, neon/synthwave style, built to feel like a native game (no DOM UI, no `alert`).
+Snake game built to feel like a native game (no DOM UI, no `alert`). Two looks: Neon (synthwave) and Old School (Game Boy, Nokia, 8-bit console pixel palettes).
 
 ## Stack
 
@@ -17,12 +17,14 @@ Snake game, neon/synthwave style, built to feel like a native game (no DOM UI, n
 ## Architecture
 
 - `src/core/`: pure game rules, no Phaser imports. `SnakeGame` advances one tick per `step()` and its timers (item expiry, effects, combo window) with `advance(ms)`, called only while playing so pause freezes them. Buffers turns (`queueTurn`); food, items and obstacles spawn from the list of free cells. Tunables in `RULES`. Unit tested in `tests/`.
-- `src/scenes/GameViews.ts`: `ItemView`, `ObstacleView`, `PowerHud` (combo column, effect bars, slow-mo tint) used by `GameScene`.
+- `src/scenes/GameViews.ts`: all board drawing used by `GameScene` (`drawBoard`, `SnakeView`, `FoodView`, `ItemView`, `ObstacleView`, `PowerHud`). Each view branches on `theme().pixel`: neon shapes vs 8x8 pixel sprites (`SPRITES`).
+- `src/theme.ts`: visual styles (`neon`, `gameboy`, `nokia`, `console`). Scenes ask `theme()` for colors by role (`text.primary`, `food`, `items.golden`...) and never use `COLORS`/`CSS` from `config.ts` directly, except inside neon-only branches. Pixel styles: Press Start 2P font, no glow/bloom, cell-by-cell movement, chiptune audio (`audio.setChiptune`), accents stripped by `t()` (the font squeezes accented capitals).
+- Style and language rebuild every screen, so they can only be changed from the main menu's settings (`fromMenu`); changing style restarts the Settings scene as a live preview.
 - `src/scenes/`: `Boot` (procedural textures) → `Menu` → `Game`. `Pause`, `GameOver` and `Settings` are overlay scenes launched on top of a paused caller.
 - `src/audio/Audio.ts`: singleton `audio`. All music and SFX synthesized with Web Audio (no files). Unlocked by the first input on the "press any key" title (browser autoplay rules). Music sections: `menu`, `game` (tempo follows intensity), `off`; muffled with a lowpass while paused.
 - `src/ui/TouchControls.ts`: swipe (always on touch devices) + optional D-pad.
 - `GameScene` runs a fixed timestep (accumulator) decoupled from render FPS and interpolates head/tail between ticks.
-- `src/ui/`: `neonText` (glow text), `applyNeonPost` (camera bloom), `MenuList` (keyboard/mouse/touch menu), `Background`, overlay helpers.
+- `src/ui/`: `gameText` (text in the active style; colors are `TextRole`s), `applyNeonPost` (camera bloom), `MenuList` (keyboard/mouse/touch menu), `Background`, overlay helpers.
 - `src/i18n.ts`: every user-visible string goes through `t()`; keep `en` and `es` in sync.
 - `src/storage.ts`: localStorage wrapped in try/catch; the game must run without storage. Holds high scores and `Settings` (volumes, bloom/shake/flash toggles, touch scheme, language). Shake/flash default off under `prefers-reduced-motion`.
 - Use `shake`, `flash`, `vibrate` from `src/ui/neon.ts`, never the camera methods directly, so settings are respected.

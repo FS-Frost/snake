@@ -1,21 +1,43 @@
 import Phaser from "phaser";
 import { audio } from "../audio/Audio";
-import { CSS, HEIGHT, SCENES, WIDTH } from "../config";
+import { HEIGHT, SCENES, WIDTH } from "../config";
 import { getLanguage, type Language, setLanguage, t } from "../i18n";
-import { getSettings, type TouchScheme, updateSettings } from "../storage";
+import { type DpadSide, getSettings, type TouchScheme, updateSettings } from "../storage";
+import { STYLES, type Style, styleLabel, textCss, theme } from "../theme";
 import { type MenuItem, MenuList } from "../ui/MenuList";
-import { applyNeonPost, isBloomAvailable, neonText, refreshNeonPost, shake } from "../ui/neon";
+import { applyNeonPost, isBloomAvailable, gameText, refreshNeonPost, shake } from "../ui/neon";
 import { createBackdrop } from "../ui/overlay";
 
 export interface SettingsSceneData {
     /** Scene that opened settings; it is paused meanwhile and resumed on close. */
     from: string;
-    /** Language changes rebuild every text, which only the menu does cleanly. */
-    allowLanguage: boolean;
+    /** Language and style rebuild every screen, which only the main menu does cleanly. */
+    fromMenu: boolean;
+    /** Carried across self-restarts (style preview) to know whether the caller must be rebuilt. */
+    initial?: { language: Language; style: Style };
+    /** Item to focus after a self-restart. */
+    focus?: number;
 }
 
 const LANGUAGES: readonly Language[] = ["en", "es"];
-const TOUCH_SCHEMES: readonly TouchScheme[] = ["swipe", "dpad"];
+
+/** Touch scheme and D-pad side merged into one option: SWIPE, D-PAD LEFT, D-PAD CENTER, D-PAD RIGHT. */
+const TOUCH_OPTIONS: readonly { touch: TouchScheme; dpadSide: DpadSide }[] = [
+    { touch: "swipe", dpadSide: "center" },
+    { touch: "dpad", dpadSide: "left" },
+    { touch: "dpad", dpadSide: "center" },
+    { touch: "dpad", dpadSide: "right" },
+];
+
+function touchIndex(): number {
+    const { touch, dpadSide } = getSettings();
+    return touch === "swipe" ? 0 : TOUCH_OPTIONS.findIndex((option) => option.dpadSide === dpadSide);
+}
+
+function touchLabel(): string {
+    const { touch, dpadSide } = getSettings();
+    return touch === "swipe" ? t("touch.swipe") : t(`touch.dpad.${dpadSide}`);
+}
 
 const clampVolume = (value: number) => Math.max(0, Math.min(10, value));
 const onOff = (value: boolean) => (value ? t("on") : t("off"));
@@ -23,7 +45,7 @@ const other = <T>(values: readonly T[], current: T) => values[(values.indexOf(cu
 
 export class SettingsScene extends Phaser.Scene {
     private openedWith!: SettingsSceneData;
-    private initialLanguage!: Language;
+    private initial!: { language: Language; style: Style };
 
     constructor() {
         super(SCENES.settings);
@@ -31,8 +53,9 @@ export class SettingsScene extends Phaser.Scene {
 
     create(data: SettingsSceneData): void {
         this.openedWith = data;
-        this.initialLanguage = getLanguage();
-        createBackdrop(this, 0.9);
+        this.initial = data.initial ?? { language: getLanguage(), style: getSettings().style };
+        // After a style change the paused caller still shows the old style: hide it completely.
+        createBackdrop(this, 0.9, getSettings().style !== this.initial.style);
 
         const items: MenuItem[] = [
             {
@@ -73,12 +96,26 @@ export class SettingsScene extends Phaser.Scene {
                 onChange: () => updateSettings({ flash: !getSettings().flash }),
             },
             {
-                label: () => `${t("touch")}: ${t(`touch.${getSettings().touch}`)}`,
-                onChange: () => updateSettings({ touch: other(TOUCH_SCHEMES, getSettings().touch) }),
+                label: () => `${t("touch")}: ${touchLabel()}`,
+                onChange: (delta) => {
+                    const next = (touchIndex() + delta + TOUCH_OPTIONS.length) % TOUCH_OPTIONS.length;
+                    updateSettings(TOUCH_OPTIONS[next]);
+                },
             },
         ];
 
-        if (data.allowLanguage) {
+        if (data.fromMenu) {
+            items.push({
+                label: () => `${t("style")}: ${styleLabel(getSettings().style)}`,
+                onChange: (delta) => {
+                    const index = STYLES.indexOf(getSettings().style);
+                    updateSettings({ style: STYLES[(index + delta + STYLES.length) % STYLES.length] });
+                    audio.setChiptune(theme().pixel);
+                    // Rebuild this screen in the new style right away, as a live preview.
+                    const focus = items.findIndex((item) => item.label().startsWith(t("style")));
+                    this.scene.restart({ ...data, initial: this.initial, focus });
+                },
+            });
             items.push({
                 label: () => `${t("language")}: ${t(`language.${getLanguage()}`)}`,
                 onChange: () => {
@@ -98,12 +135,13 @@ export class SettingsScene extends Phaser.Scene {
         const listHeight = (items.length - 1) * spacing;
         const top = HEIGHT / 2 - listHeight / 2 + 40;
 
-        const title = neonText(this, WIDTH / 2, top - 100, t("settings"), { size: 54, weight: 900, color: CSS.white });
-        title.setShadow(0, 0, CSS.cyan, 22, false, true);
+        const title = gameText(this, WIDTH / 2, top - 100, t("settings"), { size: 54, weight: 900, color: "text" });
+        title.setShadow(theme().pixel ? 4 : 0, theme().pixel ? 4 : 0, textCss(theme().pixel ? "dim" : "primary"), theme().pixel ? 0 : 22, false, true);
 
         const menu = new MenuList(this, WIDTH / 2, top, items, {
             spacing,
             size: 24,
+            focus: data.focus,
             onBack: () => this.close(),
         });
 
@@ -113,7 +151,7 @@ export class SettingsScene extends Phaser.Scene {
     private close(): void {
         const { from } = this.openedWith;
 
-        if (getLanguage() !== this.initialLanguage) {
+        if (getLanguage() !== this.initial.language || getSettings().style !== this.initial.style) {
             // Rebuild the caller so its static texts pick up the new language.
             this.scene.stop(from);
             this.scene.start(from);

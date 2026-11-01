@@ -1,42 +1,63 @@
 import Phaser from "phaser";
-import { FONT } from "../config";
 import { DEBUG } from "../debug";
 import { getSettings } from "../storage";
+import { type TextRole, textCss, theme } from "../theme";
 
-export interface NeonTextOptions {
+export interface GameTextOptions {
     size?: number;
-    color?: string;
+    color?: TextRole;
     weight?: 400 | 500 | 700 | 900;
-    /** Glow radius in px. 0 disables the glow. */
+    /** Glow radius in px (neon style only). 0 disables the glow. */
     glow?: number;
     align?: "left" | "center" | "right";
 }
 
-/** Text with a canvas-shadow glow in its own color. */
-export function neonText(
+/**
+ * Text in the active style: Orbitron with a glow in neon, a crisp pixel font in the Old School styles.
+ * Sizes are given for the neon font and scaled for the wider pixel font.
+ */
+export function gameText(
     scene: Phaser.Scene,
     x: number,
     y: number,
     content: string,
-    { size = 24, color = "#f4f1ff", weight = 700, glow = 12, align = "center" }: NeonTextOptions = {},
+    { size = 24, color = "text", weight = 700, glow = 12, align = "center" }: GameTextOptions = {},
 ): Phaser.GameObjects.Text {
+    const style = theme();
+    const css = textCss(color);
+    const glowPx = style.glow ? glow : 0;
+    // Pixel fonts stay sharp on multiples of 4 px.
+    const fontSize = style.pixel ? Math.max(8, Math.round((size * style.fontScale) / 4) * 4) : size;
+
     const text = scene.add.text(x, y, content, {
-        fontFamily: FONT,
-        fontSize: `${size}px`,
-        fontStyle: String(weight),
-        color,
+        fontFamily: style.font,
+        fontSize: `${fontSize}px`,
+        fontStyle: style.pixel ? "400" : String(weight),
+        color: css,
         align,
         // Extra room so the glow is not clipped by the text texture bounds.
-        padding: { x: glow, y: glow },
+        padding: { x: glowPx + 2, y: glowPx + 2 },
         resolution: Math.min(window.devicePixelRatio || 1, 2),
+        lineSpacing: style.pixel ? 8 : 0,
     });
 
-    if (glow > 0) {
-        text.setShadow(0, 0, color, glow, false, true);
+    if (glowPx > 0) {
+        text.setShadow(0, 0, css, glowPx, false, true);
+    }
+
+    if (style.pixel) {
+        text.texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
     }
 
     const originX = align === "left" ? 0 : align === "right" ? 1 : 0.5;
     return text.setOrigin(originX, 0.5);
+}
+
+/** Recolors a text by role, keeping the style rules (glow only in neon). */
+export function setTextRole(text: Phaser.GameObjects.Text, role: TextRole, glow = 0): void {
+    const css = textCss(role);
+    text.setColor(css);
+    text.setShadow(0, 0, css, theme().glow ? glow : 0, false, true);
 }
 
 const BLOOM_KEY = "bloom";
@@ -50,7 +71,7 @@ export function setBloomWorks(works: boolean): void {
 
 /** False on Canvas, with ?bloom=0, or when the GPU failed the boot probe. The setting cannot override it. */
 export function isBloomAvailable(game: Phaser.Game): boolean {
-    return game.renderer.type === Phaser.WEBGL && !DEBUG.noBloom && bloomWorks;
+    return game.renderer.type === Phaser.WEBGL && !DEBUG.noBloom && bloomWorks && !theme().pixel;
 }
 
 export function addBloom(camera: Phaser.Cameras.Scene2D.Camera): Phaser.Filters.ParallelFilters {

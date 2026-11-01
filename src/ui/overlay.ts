@@ -1,9 +1,12 @@
 import Phaser from "phaser";
 import { HEIGHT, SCENES, WIDTH } from "../config";
+import { theme } from "../theme";
 
-/** Dims the frozen game underneath and swallows pointer input. */
-export function createBackdrop(scene: Phaser.Scene, alpha = 0.72): Phaser.GameObjects.Rectangle {
-    const backdrop = scene.add.rectangle(0, 0, WIDTH, HEIGHT, 0x05040f, alpha).setOrigin(0).setInteractive();
+/** Dims the frozen game underneath and swallows pointer input. Light LCD palettes fade to their backlight color. */
+export function createBackdrop(scene: Phaser.Scene, alpha = 0.72, opaque = false): Phaser.GameObjects.Rectangle {
+    const style = theme();
+    const opacity = opaque ? 1 : style.pixel ? style.overlayAlpha : alpha;
+    const backdrop = scene.add.rectangle(0, 0, WIDTH, HEIGHT, style.overlay, opacity).setOrigin(0).setInteractive();
     backdrop.setAlpha(0);
     scene.tweens.add({ targets: backdrop, alpha: 1, duration: 200 });
     return backdrop;

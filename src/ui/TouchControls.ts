@@ -1,9 +1,10 @@
 import Phaser from "phaser";
-import { BOARD_X, BOARD_Y, BOARD_W, BOARD_H, COLORS, CONTROLS_Y, CSS, TOUCH_LAYOUT, WIDTH } from "../config";
+import { BOARD_H, BOARD_W, BOARD_X, BOARD_Y, CONTROLS_Y, TOUCH_LAYOUT, WIDTH } from "../config";
 import { type Direction, DIRECTION_VECTORS } from "../core/types";
 import { t } from "../i18n";
-import { getSettings } from "../storage";
-import { neonText, vibrate } from "./neon";
+import { type DpadSide, getSettings } from "../storage";
+import { theme } from "../theme";
+import { gameText, vibrate } from "./neon";
 
 /** Logical px a finger must travel before a swipe counts. */
 const SWIPE_THRESHOLD = 26;
@@ -11,6 +12,12 @@ const BUTTON_RADIUS = 50;
 const BUTTON_GAP = 108;
 
 const DIRECTIONS: readonly Direction[] = ["up", "down", "left", "right"];
+
+/** Horizontal center of the D-pad so the outer buttons keep a margin from the screen edge. */
+function dpadX(side: DpadSide): number {
+    const reach = BUTTON_GAP + BUTTON_RADIUS + 24;
+    return side === "left" ? BOARD_X + reach - 24 : side === "right" ? BOARD_X + BOARD_W - reach + 24 : WIDTH / 2;
+}
 
 /**
  * Swipe anywhere (always on for touch devices) plus an optional on-screen D-pad.
@@ -34,7 +41,7 @@ export class TouchControls {
         if (getSettings().touch === "dpad") {
             this.createDpad();
         } else if (TOUCH_LAYOUT) {
-            neonText(scene, WIDTH / 2, CONTROLS_Y, t("swipeHint"), { size: 18, color: CSS.dim, glow: 0, weight: 400 });
+            gameText(scene, WIDTH / 2, CONTROLS_Y, t("swipeHint"), { size: 18, color: "dim", glow: 0, weight: 400 });
         }
     }
 
@@ -65,25 +72,24 @@ export class TouchControls {
     }
 
     private createDpad(): void {
-        // Portrait phones: dedicated strip below the board. Otherwise a translucent pad over the board corner.
-        const center = TOUCH_LAYOUT
-            ? { x: WIDTH / 2, y: CONTROLS_Y }
-            : { x: BOARD_X + BOARD_W - BUTTON_GAP - 20, y: BOARD_Y + BOARD_H - BUTTON_GAP - 20 };
+        // Portrait phones: dedicated strip below the board. Otherwise a translucent pad over the bottom of the board.
+        const center = { x: dpadX(getSettings().dpadSide), y: TOUCH_LAYOUT ? CONTROLS_Y : BOARD_Y + BOARD_H - BUTTON_GAP - 20 };
         const alpha = TOUCH_LAYOUT ? 1 : 0.45;
+        const style = theme();
 
         for (const direction of DIRECTIONS) {
             const v = DIRECTION_VECTORS[direction];
             const button = this.scene.add.graphics({ x: center.x + v.x * BUTTON_GAP, y: center.y + v.y * BUTTON_GAP });
-            button.fillStyle(COLORS.board, 0.85);
+            button.fillStyle(style.board, 0.85);
             button.fillCircle(0, 0, BUTTON_RADIUS);
-            button.lineStyle(3, COLORS.cyan, 0.9);
+            button.lineStyle(3, style.text.primary, 0.9);
             button.strokeCircle(0, 0, BUTTON_RADIUS);
 
             // Arrow triangle pointing along the direction vector.
             const tip = { x: v.x * 20, y: v.y * 20 };
             const side = { x: -v.y * 16, y: v.x * 16 };
             const back = { x: -v.x * 10, y: -v.y * 10 };
-            button.fillStyle(COLORS.cyan, 1);
+            button.fillStyle(style.text.primary, 1);
             button.fillTriangle(tip.x, tip.y, back.x + side.x, back.y + side.y, back.x - side.x, back.y - side.y);
             button.setAlpha(alpha);
 

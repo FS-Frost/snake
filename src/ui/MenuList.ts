@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import { audio } from "../audio/Audio";
-import { CSS } from "../config";
-import { neonText } from "./neon";
+import { theme } from "../theme";
+import { gameText, setTextRole } from "./neon";
 
 export interface MenuItem {
     label: () => string;
@@ -18,6 +18,8 @@ export interface MenuListOptions {
     onUpdate?: () => void;
     /** ESC / Backspace. */
     onBack?: () => void;
+    /** Initially focused item. */
+    focus?: number;
 }
 
 /**
@@ -38,9 +40,10 @@ export class MenuList {
         this.items = items;
         this.onUpdate = options.onUpdate;
         this.onBack = options.onBack;
+        this.focus = Math.max(0, Math.min(items.length - 1, options.focus ?? 0));
 
         this.texts = items.map((item, index) => {
-            const text = neonText(scene, x, y + index * spacing, item.label(), { size, glow: 10 });
+            const text = gameText(scene, x, y + index * spacing, item.label(), { size, glow: 10 });
             text.setInteractive({ useHandCursor: true });
             text.on(Phaser.Input.Events.GAMEOBJECT_POINTER_OVER, () => this.setFocus(index));
             text.on(Phaser.Input.Events.GAMEOBJECT_POINTER_UP, (_pointer: Phaser.Input.Pointer, localX: number) => {
@@ -153,13 +156,14 @@ export class MenuList {
         this.items.forEach((item, index) => {
             const text = this.texts[index];
             const focused = index === this.focus;
-            const label = item.onChange ? `<  ${item.label()}  >` : item.label();
-            const color = focused ? CSS.cyan : CSS.dim;
+            // Pixel palettes may have a single ink color, so focus must also show through the markers:
+            // there, arrows appear only on the focused item.
+            const showArrows = item.onChange && (focused || !theme().pixel);
+            const label = showArrows ? `<  ${item.label()}  >` : item.label();
 
             text.setText(focused && !item.onChange ? `>  ${label}  <` : label);
-            text.setColor(color);
-            text.setShadow(0, 0, color, focused ? 16 : 0, false, true);
-            text.setAlpha(focused ? 1 : 0.75);
+            setTextRole(text, focused ? "primary" : "dim", focused ? 16 : 0);
+            text.setAlpha(focused ? 1 : 0.6);
         });
     }
 }

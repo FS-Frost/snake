@@ -1,11 +1,13 @@
 import type { Difficulty, ItemType, Mode } from "./core/types";
 import { getSettings } from "./storage";
+import { theme } from "./theme";
 
 export type Language = "en" | "es";
 
 const en = {
     title: "SNAKE",
     subtitle: "NEON GRID",
+    oldSchool: "OLD SCHOOL",
     play: "PLAY",
     mode: "MODE",
     difficulty: "DIFFICULTY",
@@ -44,6 +46,10 @@ const en = {
     unavailable: "N/A",
     "touch.swipe": "SWIPE",
     "touch.dpad": "D-PAD",
+    "touch.dpad.left": "D-PAD LEFT",
+    "touch.dpad.center": "D-PAD CENTER",
+    "touch.dpad.right": "D-PAD RIGHT",
+    style: "STYLE",
     swipeHint: "SWIPE ANYWHERE TO TURN",
     tapToStart: "TAP OR PRESS ANY KEY",
     "language.en": "ENGLISH",
@@ -61,6 +67,7 @@ type Key = keyof typeof en;
 const es: Record<Key, string> = {
     title: "SNAKE",
     subtitle: "NEON GRID",
+    oldSchool: "OLD SCHOOL",
     play: "JUGAR",
     mode: "MODO",
     difficulty: "DIFICULTAD",
@@ -99,6 +106,10 @@ const es: Record<Key, string> = {
     unavailable: "N/D",
     "touch.swipe": "DESLIZAR",
     "touch.dpad": "CRUCETA",
+    "touch.dpad.left": "CRUCETA IZQ.",
+    "touch.dpad.center": "CRUCETA CENTRO",
+    "touch.dpad.right": "CRUCETA DER.",
+    style: "ESTILO",
     swipeHint: "DESLIZA PARA GIRAR",
     tapToStart: "TOCA O PULSA UNA TECLA",
     "language.en": "ENGLISH",
@@ -123,8 +134,17 @@ export function getLanguage(): Language {
     return language;
 }
 
+/**
+ * The pixel font squeezes accented capitals into 8 px and they read as lowercase, so Old School
+ * drops acute accents like 8-bit games did. Ñ survives: without it words change meaning.
+ */
+function stripAccents(text: string): string {
+    return text.replace(/[ÁÉÍÓÚÜáéíóúü]/g, (ch) => ch.normalize("NFD")[0]);
+}
+
 export function t(key: Key): string {
-    return dictionaries[language][key];
+    const text = dictionaries[language][key];
+    return theme().pixel ? stripAccents(text) : text;
 }
 
 export function modeLabel(mode: Mode): string {

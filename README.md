@@ -1,6 +1,6 @@
 # Snake: Neon Grid
 
-🐍 A neon synthwave take on Snake, built to feel like a game, not a web page: everything happens inside the canvas, with procedural music and sound, and it plays offline once installed.
+🐍 A neon synthwave (or pixel Old School) take on Snake, built to feel like a game, not a web page: everything happens inside the canvas, with procedural music and sound, and it plays offline once installed.
 
 ## Play online
 
@@ -19,8 +19,9 @@ Install it from the browser ("Install app" / "Add to Home Screen") to play offli
 - **Combo:** eat again within 3 s to raise the multiplier up to x5.
 - **Levels:** every 10 foods new obstacles appear, never right in front of you.
 - **Procedural audio:** synthwave soundtrack that speeds up with the game, plus synthesized sound effects. No audio files.
-- **Settings:** music/SFX volume, glow, screen shake, flashes (off by default with *reduce motion*), touch controls, language (English/Spanish).
-- **Touch:** swipe anywhere or use the on-screen D-pad. Portrait phones get a dedicated control strip below the board.
+- **Two looks:** Neon (synthwave, glow, smooth movement) or Old School in three palettes (Game Boy, Nokia, 8-bit console) with pixel art, cell-by-cell movement and chiptune audio. Purely visual: rules and scores are the same.
+- **Settings:** music/SFX volume, glow, screen shake, flashes (off by default with *reduce motion*), touch controls, style, language (English/Spanish).
+- **Touch:** swipe anywhere or use the on-screen D-pad, placed left, center or right. Portrait phones get a dedicated control strip below the board.
 
 ## Controls
 
