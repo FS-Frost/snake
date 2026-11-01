@@ -40,7 +40,10 @@ const TOUCH_OPTIONS: readonly { touch: TouchScheme; dpadSide: DpadSide }[] = [
 
 function touchIndex(): number {
     const { touch, dpadSide } = getSettings();
-    return touch === "swipe" ? 0 : TOUCH_OPTIONS.findIndex((option) => option.dpadSide === dpadSide);
+    // Match both fields: the swipe entry also carries a dpadSide ("center"), so matching the side alone
+    // returned the swipe entry for "D-pad center" and the option could never reach "D-pad right".
+    const index = TOUCH_OPTIONS.findIndex((option) => option.touch === touch && (touch === "swipe" || option.dpadSide === dpadSide));
+    return Math.max(0, index);
 }
 
 function touchLabel(): string {

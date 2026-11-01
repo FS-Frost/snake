@@ -5,6 +5,7 @@ import {
     BOARD_X,
     BOARD_Y,
     CONTROLS_X,
+    CONTROLS_Y,
     GRID_COLS,
     GRID_ROWS,
     HEIGHT,
@@ -23,6 +24,7 @@ import { getHighScore, getSettings, submitScore } from "../storage";
 import { activeStyle, styleLabel, surpriseOnFood, type TextRole, theme, toCss } from "../theme";
 import { addBackdrop, particleTexture } from "../ui/Background";
 import { applyNeonPost, fadeIn, fitWidth, flash, gameText, shake, vibrate } from "../ui/neon";
+import { pauseButton } from "../ui/buttons";
 import { TouchControls } from "../ui/TouchControls";
 import { gameSong, type TrackId, unlockEarned } from "../tracks";
 import { cellX, cellY, drawBoard, FoodView, ItemView, ObstacleView, PowerHud, SnakeView } from "./GameViews";
@@ -71,9 +73,12 @@ const FOOTER_SLOT = BOARD_W / 2 - 12;
 /** Width kept free at the right of the top HUD for the pause button. */
 const PAUSE_SLOT = 64;
 
+/** Portrait phones put the pause button in the control strip, so the top HUD keeps its full width. */
+const pauseInStrip = () => LAYOUT === "portrait";
+
 /** Centers of the four top-HUD columns (portrait and desktop). */
 function hudColumns(): number[] {
-    const width = BOARD_W - PAUSE_SLOT;
+    const width = BOARD_W - (pauseInStrip() ? 0 : PAUSE_SLOT);
     return [0, 1, 2, 3].map((i) => BOARD_X + (width * (i + 0.5)) / 4);
 }
 
@@ -619,7 +624,15 @@ export class GameScene extends Phaser.Scene {
             glow: 5,
         });
 
-        this.createPauseButton(BOARD_X + BOARD_W - PAUSE_SLOT / 2 + 8, 64);
+        if (pauseInStrip()) {
+            // Big key in the control strip, on the side away from the D-pad (left for swipe or a centered pad).
+            const size = 112;
+            const right = getSettings().touch === "dpad" && getSettings().dpadSide === "left";
+            const x = right ? BOARD_X + BOARD_W - size / 2 : BOARD_X + size / 2;
+            pauseButton(this, x, CONTROLS_Y, size, () => this.pause());
+        } else {
+            pauseButton(this, BOARD_X + BOARD_W - PAUSE_SLOT / 2 + 6, 64, 52, () => this.pause());
+        }
 
         // Footer: each text owns half the row. While a timed effect runs, its bars take the row instead.
         const footerY = BOARD_Y + BOARD_H + 32;
@@ -654,21 +667,7 @@ export class GameScene extends Phaser.Scene {
         this.speedText = gameText(this, x, BOARD_Y + BOARD_H - 6, "", tagStyle);
 
         // Pause sits at the top of the controls column, within thumb reach.
-        this.createPauseButton(CONTROLS_X, BOARD_Y + 30);
-    }
-
-    /** Needed on touch screens without an ESC key; bigger there so a thumb can hit it. */
-    private createPauseButton(x: number, y: number): void {
-        const touch = this.sys.game.device.input.touch;
-        const pauseButton = gameText(this, x, y, "II", { size: touch ? 48 : 30, color: "primary", weight: 900 });
-        // Generous hit area around the glyph.
-        const pad = touch ? 28 : 10;
-        pauseButton.setInteractive({
-            hitArea: new Phaser.Geom.Rectangle(-pad, -pad, pauseButton.width + pad * 2, pauseButton.height + pad * 2),
-            hitAreaCallback: Phaser.Geom.Rectangle.Contains,
-            useHandCursor: true,
-        });
-        pauseButton.on(Phaser.Input.Events.GAMEOBJECT_POINTER_UP, () => this.pause());
+        pauseButton(this, CONTROLS_X, BOARD_Y + 44, 76, () => this.pause());
     }
 
     private updateHud(): void {
@@ -688,6 +687,12 @@ export class GameScene extends Phaser.Scene {
             fitWidth(this.speedText, SIDE_W - 24);
         } else {
             fitWidth(this.speedText, FOOTER_SLOT);
+            // Both footer halves at the same (smallest) scale, so they read as one row.
+            const [tag, speed] = this.footerTexts;
+            fitWidth(tag, FOOTER_SLOT);
+            const scale = Math.min(tag.scaleX, speed.scaleX);
+            tag.setScale(scale);
+            speed.setScale(scale);
             const effectRunning = this.logic.isActive("slowmo") || this.logic.isActive("ghost");
             this.footerTexts.forEach((text) => text.setVisible(!effectRunning));
         }
