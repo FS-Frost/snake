@@ -21,6 +21,8 @@ export interface Settings {
     style: StyleSetting;
     /** False until the player picks a style on first launch. */
     styleChosen: boolean;
+    /** One-time migration flag: old saves carried "center" as the D-pad side. */
+    dpadRightMigrated: boolean;
 }
 
 interface SaveData {
@@ -47,6 +49,7 @@ const defaultSettings: Settings = {
     // Surprise by default: the game keeps changing looks while you play.
     style: "surprise",
     styleChosen: false,
+    dpadRightMigrated: true,
     language: navigator.language.toLowerCase().startsWith("es") ? "es" : "en",
 };
 
@@ -68,7 +71,17 @@ function load(): SaveData {
 
         const parsed = JSON.parse(raw) as Partial<SaveData>;
         // Nested merge so settings added in later versions get their defaults.
-        return { ...defaults, ...parsed, settings: { ...defaultSettings, ...parsed.settings } };
+        const settings = { ...defaultSettings, ...parsed.settings };
+
+        // Saves from before the D-pad moved right by default stored the old default ("center") as if
+        // chosen. Move it once; later changes are the player's own.
+        // Read the flag from the save itself: the merged defaults already carry it as true.
+        if (!parsed.settings?.dpadRightMigrated) {
+            settings.dpadSide = "right";
+            settings.dpadRightMigrated = true;
+        }
+
+        return { ...defaults, ...parsed, settings };
     } catch {
         return { ...defaults };
     }

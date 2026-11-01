@@ -1,5 +1,3 @@
-import { getSettings } from "./storage";
-
 export const GRID_COLS = 24;
 export const GRID_ROWS = 24;
 export const CELL = 28;
@@ -9,7 +7,8 @@ export const BOARD_H = GRID_ROWS * CELL;
 /**
  * desktop: fixed 720x860, HUD above the board.
  * portrait: touch device held upright; taller canvas matching the screen, controls below the board.
- * landscape: touch device held sideways; board at full height between a HUD column and a controls column.
+ * landscape: touch device held sideways; board at full height between two side columns, each with a
+ *   D-pad at the bottom and part of the HUD above it.
  */
 export type LayoutKind = "desktop" | "portrait" | "landscape";
 
@@ -24,11 +23,11 @@ export let WIDTH = 720;
 export let HEIGHT = DESKTOP_HEIGHT;
 export let BOARD_X = (WIDTH - BOARD_W) / 2;
 export let BOARD_Y = 128;
-/** Center of the touch controls (portrait strip or landscape column). */
-export let CONTROLS_X = WIDTH / 2;
+/** Vertical center of the portrait control strip. */
 export let CONTROLS_Y = DESKTOP_HEIGHT;
-/** Center x and width of the landscape HUD column. */
-export let HUD_X = 0;
+/** Landscape: centers and width of the left and right columns beside the board. */
+export let LEFT_X = 0;
+export let RIGHT_X = 0;
 export let SIDE_W = 0;
 /**
  * Canvas pixels per logical pixel. The canvas is rendered at the screen's physical resolution and each
@@ -64,7 +63,7 @@ export function detectLayout(): LayoutKind {
 
 /** Recomputes every layout value for the current viewport. Returns true when anything changed. */
 export function applyLayout(): boolean {
-    const before = `${LAYOUT}:${WIDTH}x${HEIGHT}:${BOARD_X}:${HUD_X}:${RENDER_SCALE}`;
+    const before = `${LAYOUT}:${WIDTH}x${HEIGHT}:${BOARD_X}:${RENDER_SCALE}`;
     const aspect = window.innerWidth / Math.max(1, window.innerHeight);
     LAYOUT = detectLayout();
 
@@ -74,13 +73,9 @@ export function applyLayout(): boolean {
         BOARD_X = Math.round((WIDTH - BOARD_W) / 2);
         BOARD_Y = Math.round((HEIGHT - BOARD_H) / 2);
         SIDE_W = BOARD_X;
-        // Controls go on the thumb side chosen in settings; the HUD takes the other column.
-        const controlsLeft = getSettings().dpadSide === "left";
-        const left = SIDE_W / 2;
-        const right = BOARD_X + BOARD_W + SIDE_W / 2;
-        CONTROLS_X = controlsLeft ? left : right;
-        HUD_X = controlsLeft ? right : left;
-        CONTROLS_Y = HEIGHT / 2 + 40;
+        LEFT_X = SIDE_W / 2;
+        RIGHT_X = BOARD_X + BOARD_W + SIDE_W / 2;
+        CONTROLS_Y = HEIGHT / 2;
     } else {
         WIDTH = 720;
         HEIGHT =
@@ -90,13 +85,13 @@ export function applyLayout(): boolean {
         BOARD_X = (WIDTH - BOARD_W) / 2;
         BOARD_Y = 128;
         SIDE_W = 0;
-        HUD_X = 0;
-        CONTROLS_X = WIDTH / 2;
+        LEFT_X = 0;
+        RIGHT_X = 0;
         CONTROLS_Y = DESKTOP_HEIGHT + (HEIGHT - DESKTOP_HEIGHT) / 2;
     }
 
     RENDER_SCALE = computeRenderScale();
-    return before !== `${LAYOUT}:${WIDTH}x${HEIGHT}:${BOARD_X}:${HUD_X}:${RENDER_SCALE}`;
+    return before !== `${LAYOUT}:${WIDTH}x${HEIGHT}:${BOARD_X}:${RENDER_SCALE}`;
 }
 
 applyLayout();

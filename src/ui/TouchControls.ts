@@ -4,11 +4,12 @@ import {
     BOARD_W,
     BOARD_X,
     BOARD_Y,
-    CONTROLS_X,
     CONTROLS_Y,
     HEIGHT,
     LAYOUT,
+    LEFT_X,
     RENDER_SCALE,
+    RIGHT_X,
     SIDE_W,
     WIDTH,
 } from "../config";
@@ -41,16 +42,30 @@ function dpadX(side: DpadSide): number {
     return side === "left" ? BOARD_X + half : side === "right" ? BOARD_X + BOARD_W - half : WIDTH / 2;
 }
 
+/** Margin between a landscape D-pad and the bottom edge. */
+const LANDSCAPE_BOTTOM = 24;
+
 /** Shrinks the pad only when its area is too small (tablets in portrait, narrow landscape columns). */
 function dpadScale(): number {
     switch (LAYOUT) {
         case "portrait":
             return Math.min(1, (HEIGHT - PORTRAIT_STRIP_TOP - 24) / DPAD_SPAN);
         case "landscape":
-            return Math.min(1, (SIDE_W - 24) / DPAD_SPAN, (HEIGHT - 180) / DPAD_SPAN);
+            // At most ~55% of the height, so the HUD keeps the top of each column.
+            return Math.min(1, (SIDE_W - 24) / DPAD_SPAN, (HEIGHT * 0.55) / DPAD_SPAN);
         default:
             return 0.6;
     }
+}
+
+/**
+ * Landscape D-pads sit at the bottom of both side columns. Returns their vertical center and the
+ * top edge, so the HUD knows how much of the column it can use.
+ */
+export function landscapeDpadBox(): { y: number; top: number } {
+    const span = DPAD_SPAN * dpadScale();
+    const y = HEIGHT - LANDSCAPE_BOTTOM - span / 2;
+    return { y, top: y - span / 2 };
 }
 
 /**
@@ -75,8 +90,10 @@ export class TouchControls {
         if (getSettings().touch === "dpad") {
             this.createDpad();
         } else if (LAYOUT !== "desktop") {
-            const x = LAYOUT === "landscape" ? CONTROLS_X : WIDTH / 2;
-            const hint = gameText(scene, x, CONTROLS_Y, t("swipeHint"), { size: 18, color: "dim", glow: 0, weight: 400 });
+            const landscape = LAYOUT === "landscape";
+            const x = landscape ? RIGHT_X : WIDTH / 2;
+            const y = landscape ? landscapeDpadBox().y : CONTROLS_Y;
+            const hint = gameText(scene, x, y, t("swipeHint"), { size: 18, color: "dim", glow: 0, weight: 400 });
             // Landscape column is narrow: wrap the hint instead of overflowing onto the board.
             if (LAYOUT === "landscape") {
                 hint.setWordWrapWidth(SIDE_W - 40).setAlign("center");
@@ -112,16 +129,24 @@ export class TouchControls {
     }
 
     private createDpad(): void {
-        // Portrait: dedicated strip below the board. Landscape: side column.
+        // Portrait: dedicated strip below the board. Landscape: one pad per side column, for either thumb.
         // Desktop with a touchscreen: translucent pad over the bottom of the board.
+        if (LAYOUT === "landscape") {
+            const { y } = landscapeDpadBox();
+            this.createPad({ x: LEFT_X, y });
+            this.createPad({ x: RIGHT_X, y });
+            return;
+        }
+
         const scale = dpadScale();
-        const center =
-            LAYOUT === "landscape"
-                ? { x: CONTROLS_X, y: CONTROLS_Y }
-                : {
-                      x: dpadX(getSettings().dpadSide),
-                      y: LAYOUT === "portrait" ? CONTROLS_Y : BOARD_Y + BOARD_H - (DPAD_SPAN * scale) / 2 - 12,
-                  };
+        this.createPad({
+            x: dpadX(getSettings().dpadSide),
+            y: LAYOUT === "portrait" ? CONTROLS_Y : BOARD_Y + BOARD_H - (DPAD_SPAN * scale) / 2 - 12,
+        });
+    }
+
+    private createPad(center: { x: number; y: number }): void {
+        const scale = dpadScale();
         const alpha = LAYOUT === "desktop" ? 0.45 : 1;
         const style = theme();
         const half = BUTTON_SIZE / 2;

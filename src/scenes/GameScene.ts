@@ -4,13 +4,13 @@ import {
     BOARD_W,
     BOARD_X,
     BOARD_Y,
-    CONTROLS_X,
     CONTROLS_Y,
     GRID_COLS,
     GRID_ROWS,
     HEIGHT,
-    HUD_X,
     LAYOUT,
+    LEFT_X,
+    RIGHT_X,
     SCENES,
     SIDE_W,
     WIDTH,
@@ -25,7 +25,7 @@ import { activeStyle, styleLabel, surpriseOnFood, type TextRole, theme, toCss } 
 import { addBackdrop, particleTexture } from "../ui/Background";
 import { applyNeonPost, fadeIn, fitWidth, flash, gameText, shake, vibrate } from "../ui/neon";
 import { pauseButton } from "../ui/buttons";
-import { TouchControls } from "../ui/TouchControls";
+import { landscapeDpadBox, TouchControls } from "../ui/TouchControls";
 import { gameSong, type TrackId, unlockEarned } from "../tracks";
 import { cellX, cellY, drawBoard, FoodView, ItemView, ObstacleView, PowerHud, SnakeView } from "./GameViews";
 import type { GameSettings } from "./MenuScene";
@@ -103,6 +103,8 @@ export class GameScene extends Phaser.Scene {
     private speedText!: Phaser.GameObjects.Text;
     /** Mode tag and speed under the board; hidden while effect bars use that row. */
     private footerTexts: Phaser.GameObjects.Text[] = [];
+    /** Landscape: usable width for texts in the right column. */
+    private sideTextWidth = 0;
     private itemView!: ItemView;
     private obstacleView!: ObstacleView;
     private powerHud!: PowerHud;
@@ -136,7 +138,15 @@ export class GameScene extends Phaser.Scene {
         drawBoard(this, data.mode);
         this.powerHud =
             LAYOUT === "landscape"
-                ? new PowerHud(this, { comboX: HUD_X, comboY: 170, comboAlign: "center", effectsX: HUD_X, effectsY: 450, stack: true })
+                ? new PowerHud(this, {
+                      comboX: LEFT_X,
+                      comboY: 178,
+                      comboAlign: "center",
+                      effectsX: LEFT_X,
+                      effectsY: 252,
+                      stack: true,
+                      slotWidth: SIDE_W - 24,
+                  })
                 : new PowerHud(this, {
                       comboX: hudColumns()[1],
                       comboY: 84,
@@ -648,26 +658,48 @@ export class GameScene extends Phaser.Scene {
         this.footerTexts = [tagText, this.speedText];
     }
 
-    /** Landscape: everything stacked in the column beside the board. */
+    /**
+     * Landscape: the HUD shares the tops of both side columns, above the two D-pads.
+     * Left: score, combo and effect bars. Right: time, best, mode and speed, plus the pause key.
+     */
     private createSideHud(): void {
-        const x = HUD_X;
         const label = { size: 13, color: "dim", glow: 0, weight: 400 } as const;
+        const left = LEFT_X;
+        const leftWidth = SIDE_W - 24;
 
-        gameText(this, x, 32, t("score"), label);
-        this.scoreText = gameText(this, x, 74, "0", { size: 34, color: "primary", weight: 500, glow: 5 });
-        // y 130-170 belongs to the combo meter (PowerHud).
-        gameText(this, x, 232, t("time"), label);
-        this.timeText = gameText(this, x, 272, "00:00", { size: 28, color: "text", weight: 400, glow: 0 });
-        gameText(this, x, 332, t("best"), label);
-        this.bestText = gameText(this, x, 372, String(this.best), { size: 28, color: "highlight", weight: 500, glow: 5 });
+        gameText(this, left, 32, t("score"), label);
+        this.scoreText = gameText(this, left, 74, "0", { size: 34, color: "primary", weight: 500, glow: 5 });
+        // y 138-200 belongs to the combo meter and y 250+ to the effect bars (PowerHud).
+
+        // Right column. Wide (phones): texts beside the pause key at the top. Narrow (tablets): texts use
+        // the whole width and the pause key drops into the free gap above the D-pad.
+        const pauseSize = 68;
+        const narrow = SIDE_W < 360;
+        const columnLeft = BOARD_X + BOARD_W + 12;
+        const pauseX = narrow ? RIGHT_X : WIDTH - 24 - pauseSize / 2;
+        const textRight = narrow ? WIDTH - 12 : pauseX - pauseSize / 2 - 12;
+        const right = (columnLeft + textRight) / 2;
+        this.sideTextWidth = Math.max(60, textRight - columnLeft);
+        const fit = (text: Phaser.GameObjects.Text) => fitWidth(text, this.sideTextWidth);
+
+        fit(gameText(this, right, 32, t("time"), label));
+        this.timeText = fit(gameText(this, right, 74, "00:00", { size: 28, color: "text", weight: 400, glow: 0 }));
+        fit(gameText(this, right, 138, t("best"), label));
+        this.bestText = fit(gameText(this, right, 178, String(this.best), { size: 28, color: "highlight", weight: 500, glow: 5 }));
 
         const tagStyle = { size: 14, color: "secondary", glow: 6 } as const;
-        fitWidth(gameText(this, x, BOARD_Y + BOARD_H - 70, modeLabel(this.settings.mode), tagStyle), SIDE_W - 24);
-        fitWidth(gameText(this, x, BOARD_Y + BOARD_H - 40, difficultyLabel(this.settings.difficulty), tagStyle), SIDE_W - 24);
-        this.speedText = gameText(this, x, BOARD_Y + BOARD_H - 6, "", tagStyle);
+        let y = 236;
+        if (narrow) {
+            fit(gameText(this, right, y, modeLabel(this.settings.mode), tagStyle));
+            fit(gameText(this, right, (y += 30), difficultyLabel(this.settings.difficulty), tagStyle));
+        } else {
+            fit(gameText(this, right, y, `${modeLabel(this.settings.mode)}  ·  ${difficultyLabel(this.settings.difficulty)}`, tagStyle));
+        }
+        this.speedText = gameText(this, right, (y += 36), "", tagStyle);
 
-        // Pause sits at the top of the controls column, within thumb reach.
-        pauseButton(this, CONTROLS_X, BOARD_Y + 44, 76, () => this.pause());
+        fitWidth(this.scoreText, leftWidth);
+        const pauseY = narrow ? (y + 24 + landscapeDpadBox().top) / 2 : 24 + pauseSize / 2;
+        pauseButton(this, pauseX, pauseY, pauseSize, () => this.pause());
     }
 
     private updateHud(): void {
@@ -684,7 +716,7 @@ export class GameScene extends Phaser.Scene {
         this.speedText.setText(`${t("speed")}  x${multiplier.toFixed(2)}`);
 
         if (LAYOUT === "landscape") {
-            fitWidth(this.speedText, SIDE_W - 24);
+            fitWidth(this.speedText, this.sideTextWidth);
         } else {
             fitWidth(this.speedText, FOOTER_SLOT);
             // Both footer halves at the same (smallest) scale, so they read as one row.
