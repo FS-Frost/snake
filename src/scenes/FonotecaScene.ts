@@ -15,7 +15,10 @@ import { applyNeonPost, fadeIn, gameText, transitionTo } from "../ui/neon";
 
 const LOOPS_PER_TRACK = 4;
 const VIZ_BARS = 16;
-const ITEM_SPACING = 44;
+const TITLE_Y = 76;
+const LIST_TOP = 146;
+/** Room under the list for the unlock hint (up to two lines). */
+const HINT_ROOM = 70;
 
 type TimbreChoice = "original" | "neon" | "chip";
 const TIMBRES: readonly TimbreChoice[] = ["original", "neon", "chip"];
@@ -33,6 +36,7 @@ const state = {
 
 export class FonotecaScene extends Phaser.Scene {
     private menu!: MenuList;
+    private hint!: Phaser.GameObjects.Text;
     private viz!: Phaser.GameObjects.Graphics;
     private vizBox!: Phaser.Geom.Rectangle;
     private readonly spectrum = new Uint8Array(128);
@@ -43,27 +47,45 @@ export class FonotecaScene extends Phaser.Scene {
 
     create(): void {
         // Low horizon: the floor grid stays under the list instead of behind it.
-        new Background(this, { sun: false, horizon: HEIGHT * 0.93 });
+        new Background(this, { sun: false, horizon: HEIGHT * 0.93, demo: false });
         fadeIn(this);
 
         // Landscape screens get two columns (list | visualizer); otherwise the visualizer sits below.
         const wide = WIDTH >= 1000;
         const listX = wide ? WIDTH * 0.36 : WIDTH / 2;
-        const title = gameText(this, listX, 64, t("fonoteca"), { size: 48, weight: 900, color: "text", glow: 22 });
+        const title = gameText(this, listX, TITLE_Y, t("fonoteca"), { size: 48, weight: 900, color: "text", glow: 22 });
         title.setShadow(theme().pixel ? 4 : 0, theme().pixel ? 4 : 0, textCss(theme().pixel ? "dim" : "primary"), theme().pixel ? 0 : 22, false, true);
 
         const items = this.buildItems();
-        const listTop = 140;
-        this.menu = new MenuList(this, listX, listTop, items, {
-            spacing: ITEM_SPACING,
+        // Spacing from the height actually available: roomier on tall phones, tighter on desktop.
+        const reserved = wide ? 40 : 200;
+        const spacing = Phaser.Math.Clamp((HEIGHT - LIST_TOP - HINT_ROOM - reserved) / items.length, 38, 56);
+        const listBottom = LIST_TOP + (items.length - 1) * spacing;
+        const columnWidth = wide ? WIDTH * 0.62 : WIDTH;
+
+        // Unlock hint for the focused locked track: a separate line keeps every list label short.
+        // Top-anchored so a wrapped (two-line) hint grows downwards, away from the list.
+        this.hint = gameText(this, listX, listBottom + 44, "", { size: 16, color: "highlight", glow: 6, weight: 400 })
+            .setWordWrapWidth(Math.min(columnWidth, 720) - 60)
+            .setAlign("center")
+            .setOrigin(0.5, 0);
+
+        this.menu = new MenuList(this, listX, LIST_TOP, items, {
+            spacing,
             size: 20,
+            maxWidth: Math.min(columnWidth, 720) - 48,
             onBack: () => this.close(),
+            onFocus: (index) => this.showHint(index),
         });
 
+        // Visualizer: right column when wide, otherwise whatever room is left at the bottom.
         const vizW = wide ? Math.min(420, WIDTH * 0.3) : 560;
-        const vizH = wide ? 260 : Math.min(160, HEIGHT - (listTop + items.length * ITEM_SPACING) - 40);
+        const freeTop = listBottom + HINT_ROOM + 40;
+        // Old School draws a bezel frame 32 px in from the edges: stay inside it.
+        const bottomMargin = theme().pixel ? 52 : 30;
+        const vizH = wide ? 260 : Math.min(300, HEIGHT - freeTop - bottomMargin);
         const vizX = wide ? WIDTH * 0.76 - vizW / 2 : WIDTH / 2 - vizW / 2;
-        const vizY = wide ? HEIGHT / 2 - vizH / 2 : HEIGHT - vizH - 36;
+        const vizY = wide ? HEIGHT / 2 - vizH / 2 : HEIGHT - vizH - bottomMargin;
         this.vizBox = new Phaser.Geom.Rectangle(vizX, vizY, vizW, vizH);
         this.viz = this.add.graphics();
 
@@ -84,7 +106,7 @@ export class FonotecaScene extends Phaser.Scene {
             label: () => {
                 const number = `${index + 1}. `;
                 if (!isUnlocked(track)) {
-                    return `${number}??? · ${t(`lock.${track.id}` as Key)}`;
+                    return `${number}???  ${t("locked")}`;
                 }
                 const playing = state.playing && state.current?.id === track.id;
                 return `${playing ? "♪ " : ""}${number}${t(`track.${track.id}` as Key)}`;
@@ -133,6 +155,11 @@ export class FonotecaScene extends Phaser.Scene {
         ];
 
         return [...tracks, ...options];
+    }
+
+    private showHint(index: number): void {
+        const track = TRACKS[index];
+        this.hint.setText(track && !isUnlocked(track) ? `${t("unlockBy")}: ${t(`lock.${track.id}` as Key)}` : "");
     }
 
     private play(track: Track): void {

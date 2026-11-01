@@ -85,7 +85,8 @@ export class Background {
     private readonly horizon: number;
     private readonly speed: number;
 
-    constructor(scene: Phaser.Scene, { horizon = HEIGHT * 0.58, sun = true, speed = 0.25 } = {}) {
+    /** `demo`: Old School attract-mode snake under the title (menu only; it would cross other layouts). */
+    constructor(scene: Phaser.Scene, { horizon = HEIGHT * 0.58, sun = true, speed = 0.25, demo = true } = {}) {
         this.horizon = horizon;
         this.speed = speed;
 
@@ -98,7 +99,9 @@ export class Background {
             frame.strokeRect(16, 16, WIDTH - 32, HEIGHT - 32);
             frame.lineStyle(4, style.text.text, 1);
             frame.strokeRect(32, 32, WIDTH - 64, HEIGHT - 64);
-            this.addDemoSnake(scene);
+            if (demo) {
+                this.addDemoSnake(scene);
+            }
             return;
         }
 

@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { audio } from "../audio/Audio";
+import { WIDTH } from "../config";
 import { theme } from "../theme";
 import { gameText, setTextRole } from "./neon";
 
@@ -22,6 +23,8 @@ export interface MenuListOptions {
     focus?: number;
     /** Called with the new index whenever the focus moves. */
     onFocus?: (index: number) => void;
+    /** Labels wider than this shrink to fit. Defaults to the screen width minus margins. */
+    maxWidth?: number;
 }
 
 /**
@@ -34,6 +37,7 @@ export class MenuList {
     private readonly onUpdate?: () => void;
     private readonly onBack?: () => void;
     private readonly onFocus?: (index: number) => void;
+    private readonly maxWidth: number;
     private focus = 0;
     private enabled = true;
 
@@ -44,6 +48,7 @@ export class MenuList {
         this.onUpdate = options.onUpdate;
         this.onBack = options.onBack;
         this.onFocus = options.onFocus;
+        this.maxWidth = options.maxWidth ?? Math.min(WIDTH, 720) - 48;
         this.focus = Math.max(0, Math.min(items.length - 1, options.focus ?? 0));
 
         this.texts = items.map((item, index) => {
@@ -169,6 +174,11 @@ export class MenuList {
             text.setText(focused && !item.onChange ? `>  ${label}  <` : label);
             setTextRole(text, focused ? "primary" : "dim", focused ? 16 : 0);
             text.setAlpha(focused ? 1 : 0.6);
+            // Safety net for long labels on narrow screens (the minimum text size can grow them a lot).
+            text.setScale(1);
+            if (text.width > this.maxWidth) {
+                text.setScale(this.maxWidth / text.width);
+            }
         });
     }
 }
