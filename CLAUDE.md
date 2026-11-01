@@ -41,7 +41,7 @@ Snake game built to feel like a native game (no DOM UI, no `alert`). Two looks: 
 - Headless browser checks: software WebGL (swiftshader) runs ~20 FPS and makes frames lag behind input. Use the real GPU (`--use-angle=d3d11`) to judge visuals or timing. Leave ~40 ms between synthetic key presses: Phaser drops events with identical keyCode and timeStamp.
 - Port 5173 is often taken by another local project; use another port for checks.
 
-## Roadmap (branch `feat/phaser-rewrite`)
+## Roadmap
 
 1. Done: Vite + Phaser core, scenes, HUD, modes (wrap/classic), 3 difficulties, high scores.
 2. Done: procedural Web Audio (SFX + music), settings menu (volume, effects toggles, reduced motion, language, touch D-pad), swipe controls.
@@ -51,3 +51,4 @@ Snake game built to feel like a native game (no DOM UI, no `alert`). Two looks: 
 ## Deploy
 
 - Pages source is "GitHub Actions". Pushing to `master` tests, builds and publishes `dist/`. Never commit build output.
+- Work directly on `master` (no feature branches or PRs). Run `bun test`, `bun run build` and a browser check before pushing, since the push deploys immediately.
