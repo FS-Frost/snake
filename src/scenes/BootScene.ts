@@ -2,7 +2,7 @@ import Phaser from "phaser";
 import { HEIGHT, SCENES, WIDTH } from "../config";
 import { debugLog } from "../debug";
 import { createTextures } from "../ui/Background";
-import { addBloom, isBloomAvailable, setBloomWorks } from "../ui/neon";
+import { addBloom, isBloomSupported, setBloomWorks } from "../ui/neon";
 
 /** Frames to render before reading the probe, so the filter pipeline is fully warmed up. */
 const PROBE_FRAMES = 2;
@@ -21,7 +21,8 @@ export class BootScene extends Phaser.Scene {
     create(): void {
         createTextures(this);
 
-        if (!isBloomAvailable(this.game)) {
+        // Probe whatever the starting style is: the player can switch to Neon later.
+        if (!isBloomSupported(this.game)) {
             this.scene.start(SCENES.menu);
             return;
         }

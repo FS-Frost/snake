@@ -66,12 +66,18 @@ function resizeCanvas(game: Phaser.Game): void {
  * high-resolution canvas. Applied after each scene's create().
  */
 export function fitCamerasToLogicalSize(game: Phaser.Game): void {
+    const fit = (scene: Phaser.Scene) => {
+        const camera = scene.cameras.main;
+        camera.setZoom(game.scale.width / WIDTH, game.scale.height / HEIGHT);
+        camera.centerOn(WIDTH / 2, HEIGHT / 2);
+    };
+
     for (const scene of game.scene.scenes) {
-        scene.events.on(Phaser.Scenes.Events.CREATE, () => {
-            const camera = scene.cameras.main;
-            camera.setZoom(game.scale.width / WIDTH, game.scale.height / HEIGHT);
-            camera.centerOn(WIDTH / 2, HEIGHT / 2);
-        });
+        scene.events.on(Phaser.Scenes.Events.CREATE, () => fit(scene));
+        // The first scene (Boot) is created before READY fires, so it missed the listener above.
+        if (scene.sys.isActive()) {
+            fit(scene);
+        }
     }
 }
 

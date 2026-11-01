@@ -1,5 +1,17 @@
 import Phaser from "phaser";
-import { BOARD_H, BOARD_W, BOARD_X, BOARD_Y, CONTROLS_X, CONTROLS_Y, LAYOUT, RENDER_SCALE, SIDE_W, WIDTH } from "../config";
+import {
+    BOARD_H,
+    BOARD_W,
+    BOARD_X,
+    BOARD_Y,
+    CONTROLS_X,
+    CONTROLS_Y,
+    HEIGHT,
+    LAYOUT,
+    RENDER_SCALE,
+    SIDE_W,
+    WIDTH,
+} from "../config";
 import { type Direction, DIRECTION_VECTORS } from "../core/types";
 import { t } from "../i18n";
 import { type DpadSide, getSettings } from "../storage";
@@ -8,18 +20,37 @@ import { gameText, vibrate } from "./neon";
 
 /** Logical px a finger must travel before a swipe counts. */
 const SWIPE_THRESHOLD = 26;
-const BUTTON_RADIUS = 50;
-const BUTTON_GAP = 108;
+/** Square buttons, large enough for a thumb even after the canvas is scaled down on a phone. */
+const BUTTON_SIZE = 124;
+/** Center-to-center distance between the middle of the pad and each button. */
+const BUTTON_STEP = BUTTON_SIZE + 10;
+/** Touch target overflow around each button, so near-misses still count. */
+const HIT_MARGIN = 8;
 
 const DIRECTIONS: readonly Direction[] = ["up", "down", "left", "right"];
 
-/** Full D-pad width at scale 1. */
-const DPAD_SPAN = (BUTTON_GAP + BUTTON_RADIUS) * 2;
+/** Top of the portrait control strip (the 860 px desktop layout ends there). */
+const PORTRAIT_STRIP_TOP = 860;
 
-/** Portrait/desktop: horizontal center of the D-pad so the outer buttons keep a margin from the screen edge. */
+/** Full D-pad width (and height) at scale 1. */
+const DPAD_SPAN = BUTTON_STEP * 2 + BUTTON_SIZE;
+
+/** Portrait/desktop: horizontal center of the D-pad, flush with the board edge on the chosen side. */
 function dpadX(side: DpadSide): number {
-    const reach = BUTTON_GAP + BUTTON_RADIUS + 24;
-    return side === "left" ? BOARD_X + reach - 24 : side === "right" ? BOARD_X + BOARD_W - reach + 24 : WIDTH / 2;
+    const half = DPAD_SPAN / 2;
+    return side === "left" ? BOARD_X + half : side === "right" ? BOARD_X + BOARD_W - half : WIDTH / 2;
+}
+
+/** Shrinks the pad only when its area is too small (tablets in portrait, narrow landscape columns). */
+function dpadScale(): number {
+    switch (LAYOUT) {
+        case "portrait":
+            return Math.min(1, (HEIGHT - PORTRAIT_STRIP_TOP - 24) / DPAD_SPAN);
+        case "landscape":
+            return Math.min(1, (SIDE_W - 24) / DPAD_SPAN, (HEIGHT - 180) / DPAD_SPAN);
+        default:
+            return 0.6;
+    }
 }
 
 /**
@@ -81,40 +112,53 @@ export class TouchControls {
     }
 
     private createDpad(): void {
-        // Portrait: dedicated strip below the board. Landscape: side column, shrunk to fit.
+        // Portrait: dedicated strip below the board. Landscape: side column.
         // Desktop with a touchscreen: translucent pad over the bottom of the board.
+        const scale = dpadScale();
         const center =
             LAYOUT === "landscape"
                 ? { x: CONTROLS_X, y: CONTROLS_Y }
-                : { x: dpadX(getSettings().dpadSide), y: LAYOUT === "portrait" ? CONTROLS_Y : BOARD_Y + BOARD_H - BUTTON_GAP - 20 };
-        const scale = LAYOUT === "landscape" ? Math.min(1, (SIDE_W - 24) / DPAD_SPAN) : 1;
+                : {
+                      x: dpadX(getSettings().dpadSide),
+                      y: LAYOUT === "portrait" ? CONTROLS_Y : BOARD_Y + BOARD_H - (DPAD_SPAN * scale) / 2 - 12,
+                  };
         const alpha = LAYOUT === "desktop" ? 0.45 : 1;
         const style = theme();
+        const half = BUTTON_SIZE / 2;
+        const radius = style.pixel ? 0 : 18;
 
         for (const direction of DIRECTIONS) {
             const v = DIRECTION_VECTORS[direction];
-            const button = this.scene.add.graphics({
-                x: center.x + v.x * BUTTON_GAP * scale,
-                y: center.y + v.y * BUTTON_GAP * scale,
-            });
-            button.fillStyle(style.board, 0.85);
-            button.fillCircle(0, 0, BUTTON_RADIUS);
-            button.lineStyle(3, style.text.primary, 0.9);
-            button.strokeCircle(0, 0, BUTTON_RADIUS);
+            const x = center.x + v.x * BUTTON_STEP * scale;
+            const y = center.y + v.y * BUTTON_STEP * scale;
+
+            const button = this.scene.add.graphics({ x, y });
+            button.fillStyle(style.board, 0.9);
+            button.fillRoundedRect(-half, -half, BUTTON_SIZE, BUTTON_SIZE, radius);
+            button.lineStyle(style.pixel ? 6 : 4, style.text.primary, 1);
+            button.strokeRoundedRect(-half, -half, BUTTON_SIZE, BUTTON_SIZE, radius);
 
             // Arrow triangle pointing along the direction vector.
-            const tip = { x: v.x * 20, y: v.y * 20 };
-            const side = { x: -v.y * 16, y: v.x * 16 };
-            const back = { x: -v.x * 10, y: -v.y * 10 };
+            const tip = { x: v.x * 30, y: v.y * 30 };
+            const side = { x: -v.y * 26, y: v.x * 26 };
+            const back = { x: -v.x * 16, y: -v.y * 16 };
             button.fillStyle(style.text.primary, 1);
             button.fillTriangle(tip.x, tip.y, back.x + side.x, back.y + side.y, back.x - side.x, back.y - side.y);
             button.setAlpha(alpha).setScale(scale);
 
-            button.setInteractive(new Phaser.Geom.Circle(0, 0, BUTTON_RADIUS), Phaser.Geom.Circle.Contains);
+            // Press flash: the whole key lights up, which reads better under a thumb than a scale bounce.
+            const glow = this.scene.add.graphics({ x, y }).setScale(scale).setAlpha(0);
+            glow.fillStyle(style.text.primary, 1);
+            glow.fillRoundedRect(-half, -half, BUTTON_SIZE, BUTTON_SIZE, radius);
+
+            const hit = half + HIT_MARGIN;
+            button.setInteractive(new Phaser.Geom.Rectangle(-hit, -hit, hit * 2, hit * 2), Phaser.Geom.Rectangle.Contains);
             button.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () => {
                 this.onTurn(direction);
                 vibrate(8);
-                this.scene.tweens.add({ targets: button, scale: scale * 0.88, duration: 50, yoyo: true });
+                this.scene.tweens.killTweensOf(glow);
+                glow.setAlpha(0.45);
+                this.scene.tweens.add({ targets: glow, alpha: 0, duration: 160 });
             });
         }
     }

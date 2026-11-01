@@ -86,7 +86,16 @@ export function setBloomWorks(works: boolean): void {
 
 /** False on Canvas, with ?bloom=0, or when the GPU failed the boot probe. The setting cannot override it. */
 export function isBloomAvailable(game: Phaser.Game): boolean {
-    return game.renderer.type === Phaser.WEBGL && !DEBUG.noBloom && bloomWorks && !theme().pixel;
+    return isBloomSupported(game) && !theme().pixel;
+}
+
+/**
+ * Whether this device can render bloom at all, regardless of the current style. The boot probe must
+ * use this: gating it on the style skipped it when starting in a pixel style, and a later switch to
+ * Neon then turned the screen black on GPUs that break the filter.
+ */
+export function isBloomSupported(game: Phaser.Game): boolean {
+    return game.renderer.type === Phaser.WEBGL && !DEBUG.noBloom && bloomWorks;
 }
 
 export function addBloom(camera: Phaser.Cameras.Scene2D.Camera): Phaser.Filters.ParallelFilters {
