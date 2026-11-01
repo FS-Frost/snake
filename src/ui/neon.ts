@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { HEIGHT, WIDTH } from "../config";
+import { HEIGHT, RENDER_SCALE, WIDTH } from "../config";
 import { DEBUG } from "../debug";
 import { getSettings } from "../storage";
 import { type TextRole, textCss, theme } from "../theme";
@@ -51,7 +51,8 @@ export function gameText(
         align,
         // Extra room so the glow is not clipped by the text texture bounds.
         padding: { x: glowPx + 2, y: glowPx + 2 },
-        resolution: Math.min(window.devicePixelRatio || 1, 2),
+        // Rasterize at the canvas resolution: the camera zoom would otherwise upscale a low-res texture.
+        resolution: RENDER_SCALE,
         lineSpacing: style.pixel ? 8 : 0,
     });
 
@@ -92,7 +93,8 @@ export function addBloom(camera: Phaser.Cameras.Scene2D.Camera): Phaser.Filters.
     // High threshold: only saturated neon blooms, text keeps legible edges.
     const [bloom] = Phaser.Actions.AddEffectBloom(camera, {
         threshold: 0.62,
-        blurRadius: 2,
+        // Radius is in canvas pixels: scale it so the glow keeps the same size on high-res canvases.
+        blurRadius: 2 * RENDER_SCALE,
         blurSteps: 3,
         blendAmount: 0.7,
     });

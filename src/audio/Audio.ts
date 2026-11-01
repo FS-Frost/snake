@@ -183,6 +183,16 @@ class AudioEngine {
         }
     }
 
+    /** TV channel change: a burst of static and a short blip. */
+    channelSwitch(): void {
+        const ctx = this.ctx;
+        if (!ctx || ctx.state !== "running") {
+            return;
+        }
+        this.noiseBurst({ duration: 0.22, gain: 0.35, from: 9000, to: 1500 });
+        this.tone({ type: "square", freq: 1560, duration: 0.05, gain: 0.1, delay: 0.2 });
+    }
+
     itemSpawn(): void {
         this.tone({ type: "triangle", freq: 1320, duration: 0.12, gain: 0.18 });
         this.tone({ type: "triangle", freq: 1760, duration: 0.18, gain: 0.14, delay: 0.08 });

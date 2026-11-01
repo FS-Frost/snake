@@ -2,10 +2,10 @@ import Phaser from "phaser";
 import { audio } from "../audio/Audio";
 import { COLORS, HEIGHT, SCENES, WIDTH } from "../config";
 import { DIFFICULTIES, type Difficulty, MODES, type Mode } from "../core/types";
-import { difficultyLabel, modeLabel, t } from "../i18n";
+import { difficultyLabel, modeLabel, styleSettingLabel, t } from "../i18n";
 import { installOption, onInstallChange, promptInstall } from "../install";
 import { getHighScore, getLastSelection, getSettings, setLastSelection, updateSettings } from "../storage";
-import { STYLES, styleLabel, textCss, theme, toCss } from "../theme";
+import { shuffleSurprise, STYLE_SETTINGS, textCss, theme, toCss } from "../theme";
 import { Background } from "../ui/Background";
 import { type MenuItem, MenuList } from "../ui/MenuList";
 import { applyNeonPost, fadeIn, gameText, transitionTo } from "../ui/neon";
@@ -108,8 +108,8 @@ export class MenuScene extends Phaser.Scene {
      * so the player sees exactly what they pick.
      */
     private createStyleChooser(): void {
-        const items: MenuItem[] = STYLES.map((style) => ({
-            label: () => styleLabel(style),
+        const items: MenuItem[] = STYLE_SETTINGS.map((style) => ({
+            label: () => styleSettingLabel(style),
             onSelect: () => {
                 updateSettings({ styleChosen: true });
                 this.restart();
@@ -121,9 +121,13 @@ export class MenuScene extends Phaser.Scene {
 
         new MenuList(this, WIDTH / 2, top + 36 + ITEM_SPACING, items, {
             spacing: ITEM_SPACING,
-            focus: STYLES.indexOf(getSettings().style),
+            focus: STYLE_SETTINGS.indexOf(getSettings().style),
             onFocus: (index) => {
-                updateSettings({ style: STYLES[index] });
+                // Previewing "surprise" shows a random style each time it gets focus.
+                if (STYLE_SETTINGS[index] === "surprise") {
+                    shuffleSurprise();
+                }
+                updateSettings({ style: STYLE_SETTINGS[index] });
                 this.restart({ instant: true });
             },
         });
@@ -145,9 +149,13 @@ export class MenuScene extends Phaser.Scene {
                 },
             },
             {
-                label: () => `${t("style")}: ${styleLabel(getSettings().style)}`,
+                label: () => `${t("style")}: ${styleSettingLabel(getSettings().style)}`,
                 onChange: (delta) => {
-                    updateSettings({ style: cycle(STYLES, getSettings().style, delta) });
+                    const next = cycle(STYLE_SETTINGS, getSettings().style, delta);
+                    if (next === "surprise") {
+                        shuffleSurprise();
+                    }
+                    updateSettings({ style: next });
                     // Rebuild in the new style right away; keep focus on this item.
                     this.restart({ instant: true, focus: 3 });
                 },

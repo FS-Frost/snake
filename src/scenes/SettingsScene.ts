@@ -4,7 +4,7 @@ import { HEIGHT, SCENES, WIDTH } from "../config";
 import { getLanguage, type Language, setLanguage, t } from "../i18n";
 import { type DpadSide, getSettings, type TouchScheme, updateSettings } from "../storage";
 import { relayout } from "../relayout";
-import { type Style, textCss, theme } from "../theme";
+import { type StyleSetting, textCss, theme } from "../theme";
 import { type MenuItem, MenuList } from "../ui/MenuList";
 import { applyNeonPost, isBloomAvailable, gameText, refreshNeonPost, shake } from "../ui/neon";
 import { createBackdrop } from "../ui/overlay";
@@ -25,7 +25,7 @@ const LANGUAGES: readonly Language[] = ["en", "es"];
 /** Values at open time, to know on close what must be rebuilt. */
 interface Initial {
     language: Language;
-    style: Style;
+    style: StyleSetting;
     touch: TouchScheme;
     dpadSide: DpadSide;
 }

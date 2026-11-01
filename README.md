@@ -20,6 +20,7 @@ Install it with **INSTALL APP** in the main menu (Android, desktop Chrome/Edge) 
 - **Levels:** every 10 foods new obstacles appear, never right in front of you.
 - **Procedural audio:** synthwave soundtrack that speeds up with the game, plus synthesized sound effects. No audio files.
 - **Two looks:** Neon (synthwave, glow, smooth movement) or Old School in three palettes (Game Boy, Nokia, 8-bit console) with pixel art, cell-by-cell movement and chiptune audio. Purely visual: rules and scores are the same.
+- **Surprise me** (default style): every few foods the game jumps to another look mid-match with a TV channel-change effect.
 - **Settings:** music/SFX volume, glow, screen shake, flashes (off by default with *reduce motion*), touch controls, style, language (English/Spanish).
 - **Touch:** on-screen D-pad (right by default; left or center in settings) or swipe anywhere. Portrait phones get a control strip below the board; landscape puts the HUD and the D-pad in columns beside it, and rotating mid-game keeps the match.
 

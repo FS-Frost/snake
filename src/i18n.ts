@@ -1,6 +1,6 @@
 import type { Difficulty, ItemType, Mode } from "./core/types";
 import { getSettings } from "./storage";
-import { theme } from "./theme";
+import { type StyleSetting, styleLabel, theme } from "./theme";
 
 export type Language = "en" | "es";
 
@@ -51,6 +51,7 @@ const en = {
     "touch.dpad.right": "D-PAD RIGHT",
     style: "STYLE",
     chooseStyle: "CHOOSE YOUR STYLE",
+    surprise: "SURPRISE ME",
     install: "INSTALL APP",
     iosStep1: "1. Tap SHARE in Safari's toolbar",
     iosStep2: "2. Choose ADD TO HOME SCREEN",
@@ -116,6 +117,7 @@ const es: Record<Key, string> = {
     "touch.dpad.right": "CRUCETA DER.",
     style: "ESTILO",
     chooseStyle: "ELIGE TU ESTILO",
+    surprise: "SORPRÉNDEME",
     install: "INSTALAR APP",
     iosStep1: "1. Toca COMPARTIR en la barra de Safari",
     iosStep2: "2. Elige AGREGAR A INICIO",
@@ -163,6 +165,10 @@ export function modeLabel(mode: Mode): string {
 
 export function difficultyLabel(difficulty: Difficulty): string {
     return t(`difficulty.${difficulty}`);
+}
+
+export function styleSettingLabel(setting: StyleSetting): string {
+    return setting === "surprise" ? t("surprise") : styleLabel(setting);
 }
 
 export function itemLabel(item: ItemType): string {

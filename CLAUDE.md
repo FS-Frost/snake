@@ -28,6 +28,7 @@ Snake game built to feel like a native game (no DOM UI, no `alert`). Two looks: 
 - `src/i18n.ts`: every user-visible string goes through `t()`; keep `en` and `es` in sync.
 - `src/install.ts`: PWA install offer. `beforeinstallprompt` is captured in `main.ts` before anything is awaited; iOS gets manual steps (`MessageScene`). Nothing is offered when running standalone.
 - First launch shows a style chooser (live preview) until `styleChosen`; afterwards STYLE is a main-menu item.
+- Style setting `surprise` (default): `theme()` resolves to a random concrete style (`activeStyle()`); every 3-6 foods `surpriseOnFood()` picks another and `GameScene` restarts itself with `resume.styleSwitch` (match kept, TV channel-change effect, no pause).
 - `src/storage.ts`: localStorage wrapped in try/catch; the game must run without storage. Holds high scores and `Settings` (volumes, bloom/shake/flash toggles, touch scheme, language). Shake/flash default off under `prefers-reduced-motion`.
 - Use `shake`, `flash`, `vibrate` from `src/ui/neon.ts`, never the camera methods directly, so settings are respected.
 - Bloom (Phaser 4 filters) renders black on some Android GPUs. `BootScene` probes it once per launch (gray square below the bloom threshold, `readPixels`) and `isBloomAvailable` gates it; the Glow setting shows N/A there. Always add bloom through `applyNeonPost`/`addBloom`.
@@ -38,6 +39,7 @@ Snake game built to feel like a native game (no DOM UI, no `alert`). Two looks: 
 
 - 4-space indent, double quotes, Prettier.
 - Layout (`src/config.ts`): `LAYOUT` is `desktop` (720x860), `portrait` (touch upright: 720 x screen aspect, controls strip below the board) or `landscape` (touch sideways: 760 tall, board centered, HUD column at `HUD_X`, controls column at `CONTROLS_X` on the D-pad side). Values are `export let` live bindings recomputed by `applyLayout()`; always read `WIDTH`/`HEIGHT`/`BOARD_X`... at scene create, never cache them at module load.
+- Sharpness: the canvas renders at physical resolution (`RENDER_SCALE` = CSS fit scale x devicePixelRatio, 0.5-3) and `fitCamerasToLogicalSize` zooms every scene's main camera, so scenes keep using logical coordinates. Texts rasterize at `RENDER_SCALE`. Raw `pointer.x/y` are canvas pixels: divide by `RENDER_SCALE` (or use the camera) for logical distances.
 - `src/relayout.ts`: on resize/rotation, recomputes the layout, resizes the canvas and restarts visible scenes. A running match is passed to `GameScene` as `resume` and lands on the pause menu.
 - `gameText` enforces a minimum on-screen size (12 CSS px neon, 10 pixel), so small labels grow on phones: give HUD texts room (centered columns), never tight fixed offsets.
 - Colors and layout constants live in `src/config.ts`; do not hardcode them in scenes.

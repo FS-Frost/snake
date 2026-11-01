@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { applyLayout, HEIGHT, SCENES, WIDTH } from "./config";
+import { applyLayout, canvasSize, HEIGHT, SCENES, WIDTH } from "./config";
 import type { GameOverScene } from "./scenes/GameOverScene";
 import type { GameScene } from "./scenes/GameScene";
 
@@ -32,7 +32,7 @@ export function relayout(game: Phaser.Game, force = false): void {
             return;
         }
 
-        game.scale.setGameSize(WIDTH, HEIGHT);
+        resizeCanvas(game);
         const gameOver = game.scene.getScene(SCENES.gameOver) as GameOverScene;
         const results = isOn(game, SCENES.gameOver) ? gameOver.lastData : null;
 
@@ -48,11 +48,30 @@ export function relayout(game: Phaser.Game, force = false): void {
         return;
     }
 
-    game.scale.setGameSize(WIDTH, HEIGHT);
+    resizeCanvas(game);
 
     if (isOn(game, SCENES.menu)) {
         game.scene.stop(SCENES.settings);
         game.scene.start(SCENES.menu);
+    }
+}
+
+function resizeCanvas(game: Phaser.Game): void {
+    const { width, height } = canvasSize();
+    game.scale.setGameSize(width, height);
+}
+
+/**
+ * Every scene works in logical coordinates (WIDTH x HEIGHT); its main camera zooms them up to the
+ * high-resolution canvas. Applied after each scene's create().
+ */
+export function fitCamerasToLogicalSize(game: Phaser.Game): void {
+    for (const scene of game.scene.scenes) {
+        scene.events.on(Phaser.Scenes.Events.CREATE, () => {
+            const camera = scene.cameras.main;
+            camera.setZoom(game.scale.width / WIDTH, game.scale.height / HEIGHT);
+            camera.centerOn(WIDTH / 2, HEIGHT / 2);
+        });
     }
 }
 

@@ -7,6 +7,7 @@ import {
     CONTROLS_X,
     GRID_COLS,
     GRID_ROWS,
+    HEIGHT,
     HUD_X,
     LAYOUT,
     SCENES,
@@ -18,7 +19,7 @@ import { type AdvanceResult, SnakeGame, type StepResult } from "../core/SnakeGam
 import type { Cell, Direction } from "../core/types";
 import { difficultyLabel, itemLabel, modeLabel, t } from "../i18n";
 import { getHighScore, getSettings, submitScore } from "../storage";
-import { type TextRole, theme } from "../theme";
+import { activeStyle, styleLabel, surpriseOnFood, type TextRole, theme, toCss } from "../theme";
 import { addBackdrop, particleTexture } from "../ui/Background";
 import { applyNeonPost, fadeIn, flash, gameText, shake, vibrate } from "../ui/neon";
 import { TouchControls } from "../ui/TouchControls";
@@ -32,6 +33,8 @@ export interface ResumeState {
     logic: SnakeGame;
     elapsedMs: number;
     phase: Phase;
+    /** Surprise-mode style switch: keep playing and show the channel-change effect instead of pausing. */
+    styleSwitch?: boolean;
 }
 
 export interface GameSceneData extends GameSettings {
@@ -160,9 +163,15 @@ export class GameScene extends Phaser.Scene {
         applyNeonPost(this);
 
         if (resume) {
-            // Rebuilt after a rotation: land on the pause menu so the player re-orients before moving on.
             audio.setIntensity(this.logic.foodsEaten / 30);
             audio.setSlowmo(this.logic.isActive("slowmo"));
+
+            if (resume.styleSwitch) {
+                this.playChannelSwitch();
+                return;
+            }
+
+            // Rebuilt after a rotation: land on the pause menu so the player re-orients before moving on.
             // Draw one frame now: a paused scene never runs update(), so the board and HUD would stay empty.
             this.update(0, 0);
             if (this.phase === "playing") {
@@ -373,6 +382,61 @@ export class GameScene extends Phaser.Scene {
         vibrate(12);
         audio.eat(this.logic.foodsEaten);
         audio.setIntensity(this.logic.foodsEaten / 30);
+
+        if (surpriseOnFood()) {
+            this.switchStyle();
+        }
+    }
+
+    /** Surprise mode: rebuild every visual in the new style without interrupting the match. */
+    private switchStyle(): void {
+        if (this.phase !== "playing") {
+            return;
+        }
+
+        audio.setChiptune(theme().pixel);
+        audio.channelSwitch();
+        document.body.style.background = toCss(theme().background);
+        this.phase = "over"; // Freeze this instance until the restart replaces it.
+        this.scene.restart({
+            ...this.settings,
+            resume: { logic: this.logic, elapsedMs: this.elapsedMs, phase: "playing", styleSwitch: true },
+        });
+    }
+
+    /** TV channel change: static bars in the new palette, then the style name. */
+    private playChannelSwitch(): void {
+        const style = theme();
+
+        if (getSettings().flash) {
+            const colors = [style.background, style.board, style.text.primary, style.text.danger, style.text.highlight, style.snakeHead];
+            const noise = this.add.graphics().setDepth(1000);
+            const draw = () => {
+                noise.clear();
+                for (let y = 0; y < HEIGHT; y += Phaser.Math.Between(6, 26)) {
+                    noise.fillStyle(Phaser.Utils.Array.GetRandom(colors), 1);
+                    noise.fillRect(0, y, WIDTH, Phaser.Math.Between(3, 22));
+                }
+            };
+            draw();
+            this.time.addEvent({ delay: 40, repeat: 5, callback: draw });
+            this.tweens.add({ targets: noise, alpha: 0, delay: 160, duration: 160, onComplete: () => noise.destroy() });
+        }
+
+        const banner = gameText(this, WIDTH / 2, BOARD_Y + BOARD_H / 2, styleLabel(activeStyle()), {
+            size: 56,
+            weight: 900,
+            color: "highlight",
+            glow: 20,
+        }).setDepth(1001);
+        banner.setScale(1.6).setAlpha(0);
+        this.tweens.chain({
+            targets: banner,
+            tweens: [
+                { scale: 1, alpha: 1, duration: 180, ease: "Back.Out" },
+                { alpha: 0, delay: 600, duration: 250, onComplete: () => banner.destroy() },
+            ],
+        });
     }
 
     private onPick(result: StepResult): void {

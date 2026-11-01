@@ -30,6 +30,29 @@ export let CONTROLS_Y = DESKTOP_HEIGHT;
 /** Center x and width of the landscape HUD column. */
 export let HUD_X = 0;
 export let SIDE_W = 0;
+/**
+ * Canvas pixels per logical pixel. The canvas is rendered at the screen's physical resolution and each
+ * scene camera zooms by this factor, so logical coordinates stay the same while text and shapes stay sharp
+ * instead of being stretched (blurred) by CSS.
+ */
+export let RENDER_SCALE = 1;
+
+/** Upper bound: beyond this the GPU fill rate costs more than the sharpness gains. */
+const MAX_RENDER_SCALE = 3;
+/** Small windows render below logical size too: CSS downscaling blurs as much as upscaling. */
+const MIN_RENDER_SCALE = 0.5;
+
+function computeRenderScale(): number {
+    const fit = Math.min(window.innerWidth / WIDTH, window.innerHeight / HEIGHT);
+    const physical = fit * (window.devicePixelRatio || 1);
+    // Two decimals: tiny resize jitter must not trigger a relayout.
+    return Math.round(Math.min(MAX_RENDER_SCALE, Math.max(MIN_RENDER_SCALE, physical)) * 100) / 100;
+}
+
+/** Canvas backing size in physical pixels. */
+export function canvasSize(): { width: number; height: number } {
+    return { width: Math.round(WIDTH * RENDER_SCALE), height: Math.round(HEIGHT * RENDER_SCALE) };
+}
 
 export function detectLayout(): LayoutKind {
     const touch = window.matchMedia?.("(pointer: coarse)").matches ?? false;
@@ -41,7 +64,7 @@ export function detectLayout(): LayoutKind {
 
 /** Recomputes every layout value for the current viewport. Returns true when anything changed. */
 export function applyLayout(): boolean {
-    const before = `${LAYOUT}:${WIDTH}x${HEIGHT}:${BOARD_X}:${HUD_X}`;
+    const before = `${LAYOUT}:${WIDTH}x${HEIGHT}:${BOARD_X}:${HUD_X}:${RENDER_SCALE}`;
     const aspect = window.innerWidth / Math.max(1, window.innerHeight);
     LAYOUT = detectLayout();
 
@@ -72,7 +95,8 @@ export function applyLayout(): boolean {
         CONTROLS_Y = DESKTOP_HEIGHT + (HEIGHT - DESKTOP_HEIGHT) / 2;
     }
 
-    return before !== `${LAYOUT}:${WIDTH}x${HEIGHT}:${BOARD_X}:${HUD_X}`;
+    RENDER_SCALE = computeRenderScale();
+    return before !== `${LAYOUT}:${WIDTH}x${HEIGHT}:${BOARD_X}:${HUD_X}:${RENDER_SCALE}`;
 }
 
 applyLayout();

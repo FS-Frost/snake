@@ -5,10 +5,10 @@ import "@fontsource/orbitron/latin-900.css";
 import "@fontsource/press-start-2p/latin-400.css";
 import "./style.css";
 import Phaser from "phaser";
-import { COLORS, HEIGHT, WIDTH } from "./config";
+import { canvasSize, COLORS } from "./config";
 import { DEBUG, installDebugOverlay, reportRenderer } from "./debug";
 import { captureInstallPrompt } from "./install";
-import { watchLayout } from "./relayout";
+import { fitCamerasToLogicalSize, watchLayout } from "./relayout";
 import { BootScene } from "./scenes/BootScene";
 import { GameOverScene } from "./scenes/GameOverScene";
 import { GameScene } from "./scenes/GameScene";
@@ -37,8 +37,8 @@ await loadFonts();
 const game = new Phaser.Game({
     type: DEBUG.forceCanvas ? Phaser.CANVAS : Phaser.AUTO,
     parent: "game",
-    width: WIDTH,
-    height: HEIGHT,
+    width: canvasSize().width,
+    height: canvasSize().height,
     backgroundColor: COLORS.bgTop,
     scale: {
         mode: Phaser.Scale.FIT,
@@ -55,7 +55,11 @@ const game = new Phaser.Game({
     scene: [BootScene, MenuScene, GameScene, PauseScene, GameOverScene, SettingsScene, MessageScene],
 });
 
-game.events.once(Phaser.Core.Events.READY, () => reportRenderer(game));
+game.events.once(Phaser.Core.Events.READY, () => {
+    // Scenes exist only once the game is ready.
+    fitCamerasToLogicalSize(game);
+    reportRenderer(game);
+});
 watchLayout(game);
 
 if (import.meta.env.DEV) {

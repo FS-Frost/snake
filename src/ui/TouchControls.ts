@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { BOARD_H, BOARD_W, BOARD_X, BOARD_Y, CONTROLS_X, CONTROLS_Y, LAYOUT, SIDE_W, WIDTH } from "../config";
+import { BOARD_H, BOARD_W, BOARD_X, BOARD_Y, CONTROLS_X, CONTROLS_Y, LAYOUT, RENDER_SCALE, SIDE_W, WIDTH } from "../config";
 import { type Direction, DIRECTION_VECTORS } from "../core/types";
 import { t } from "../i18n";
 import { type DpadSide, getSettings } from "../storage";
@@ -63,8 +63,9 @@ export class TouchControls {
             return;
         }
 
-        const dx = pointer.x - this.anchor.x;
-        const dy = pointer.y - this.anchor.y;
+        // Pointer coordinates are canvas pixels; the threshold is in logical pixels.
+        const dx = (pointer.x - this.anchor.x) / RENDER_SCALE;
+        const dy = (pointer.y - this.anchor.y) / RENDER_SCALE;
 
         if (Math.max(Math.abs(dx), Math.abs(dy)) < SWIPE_THRESHOLD) {
             return;

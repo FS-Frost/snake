@@ -7,6 +7,11 @@ export type Style = "neon" | "gameboy" | "nokia" | "console";
 
 export const STYLES: readonly Style[] = ["neon", "gameboy", "nokia", "console"];
 
+/** "surprise" hops between styles during play; it is the default. */
+export type StyleSetting = Style | "surprise";
+
+export const STYLE_SETTINGS: readonly StyleSetting[] = ["surprise", ...STYLES];
+
 /** Semantic text colors, so scenes never pick raw colors. */
 export type TextRole = "text" | "dim" | "primary" | "secondary" | "highlight" | "danger";
 
@@ -171,8 +176,51 @@ export function styleLabel(style: Style): string {
     return STYLE_LABELS[style];
 }
 
+// ------------------------------------------------------------------ surprise mode
+
+/** Foods between surprise switches (inclusive range). */
+const SURPRISE_EVERY = [3, 6] as const;
+
+const randomStyle = (except?: Style): Style => {
+    const pool = STYLES.filter((style) => style !== except);
+    return pool[Math.floor(Math.random() * pool.length)];
+};
+
+const rollSurpriseInterval = () =>
+    SURPRISE_EVERY[0] + Math.floor(Math.random() * (SURPRISE_EVERY[1] - SURPRISE_EVERY[0] + 1));
+
+/** Session state: which style "surprise" is showing right now, and when it changes next. */
+let surpriseStyle: Style = randomStyle();
+let foodsUntilSurprise = rollSurpriseInterval();
+
+export function isSurprise(): boolean {
+    return getSettings().style === "surprise";
+}
+
+/** The concrete style on screen: the chosen one, or the current pick of surprise mode. */
+export function activeStyle(): Style {
+    const setting = getSettings().style;
+    return setting === "surprise" ? surpriseStyle : setting;
+}
+
+/** Re-rolls the surprise style (e.g. previewing it in the style picker). */
+export function shuffleSurprise(): void {
+    surpriseStyle = randomStyle(surpriseStyle);
+}
+
+/** Counts a food in surprise mode. Returns true when the style just changed. */
+export function surpriseOnFood(): boolean {
+    if (!isSurprise() || --foodsUntilSurprise > 0) {
+        return false;
+    }
+
+    foodsUntilSurprise = rollSurpriseInterval();
+    surpriseStyle = randomStyle(surpriseStyle);
+    return true;
+}
+
 export function theme(): Theme {
-    return THEMES[getSettings().style];
+    return THEMES[activeStyle()];
 }
 
 export function toCss(color: number): string {

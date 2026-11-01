@@ -1,6 +1,6 @@
 import type { Difficulty, Mode } from "./core/types";
 import type { Language } from "./i18n";
-import type { Style } from "./theme";
+import type { StyleSetting } from "./theme";
 
 const KEY = "snake.v2";
 
@@ -18,7 +18,7 @@ export interface Settings {
     touch: TouchScheme;
     dpadSide: DpadSide;
     language: Language;
-    style: Style;
+    style: StyleSetting;
     /** False until the player picks a style on first launch. */
     styleChosen: boolean;
 }
@@ -42,7 +42,8 @@ const defaultSettings: Settings = {
     // D-pad on the right by default: most players hold the phone with the right thumb free.
     touch: "dpad",
     dpadSide: "right",
-    style: "neon",
+    // Surprise by default: the game keeps changing looks while you play.
+    style: "surprise",
     styleChosen: false,
     language: navigator.language.toLowerCase().startsWith("es") ? "es" : "en",
 };
