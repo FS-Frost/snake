@@ -1,9 +1,11 @@
 import type { Difficulty, Mode } from "./core/types";
 import type { Language } from "./i18n";
+import type { Style } from "./theme";
 
 const KEY = "snake.v2";
 
 export type TouchScheme = "swipe" | "dpad";
+export type DpadSide = "left" | "center" | "right";
 
 export interface Settings {
     /** 0-10. */
@@ -14,7 +16,9 @@ export interface Settings {
     shake: boolean;
     flash: boolean;
     touch: TouchScheme;
+    dpadSide: DpadSide;
     language: Language;
+    style: Style;
 }
 
 interface SaveData {
@@ -34,6 +38,8 @@ const defaultSettings: Settings = {
     shake: !reducedMotion,
     flash: !reducedMotion,
     touch: "swipe",
+    dpadSide: "center",
+    style: "neon",
     language: navigator.language.toLowerCase().startsWith("es") ? "es" : "en",
 };
 

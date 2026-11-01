@@ -42,6 +42,8 @@ class AudioEngine {
     /** 0..1, raises tempo during play. */
     private intensity = 0;
     private tempoScale = 1;
+    /** Old School styles: console-like timbres (triangle bass, square lead, no pad, no filter sweeps). */
+    private chiptune = false;
 
     /** Browsers only allow audio after a user gesture: call this from the first input. */
     unlock(): void {
@@ -202,6 +204,10 @@ class AudioEngine {
         });
     }
 
+    setChiptune(on: boolean): void {
+        this.chiptune = on;
+    }
+
     /** Music drags while slow-mo runs. */
     setSlowmo(active: boolean): void {
         this.tempoScale = active ? 0.7 : 1;
@@ -294,7 +300,7 @@ class AudioEngine {
         const sixteenth = 60 / 108 / 4;
 
         if (this.section === "menu") {
-            if (s === 0) {
+            if (s === 0 && !this.chiptune) {
                 this.pad(t, bar.chord, sixteenth * STEPS_PER_BAR);
             }
             if (s % 4 === 0) {
@@ -328,12 +334,21 @@ class AudioEngine {
         const osc = ctx.createOscillator();
         const filter = ctx.createBiquadFilter();
         const gain = ctx.createGain();
-        osc.type = "sawtooth";
-        osc.frequency.value = midiToHz(midi);
         filter.type = "lowpass";
-        filter.Q.value = 6;
-        filter.frequency.setValueAtTime(1400, t);
-        filter.frequency.exponentialRampToValueAtTime(220, t + duration);
+
+        if (this.chiptune) {
+            // Triangle bass an octave up, unfiltered: the classic console bass channel.
+            osc.type = "triangle";
+            osc.frequency.value = midiToHz(midi + 12);
+            filter.frequency.value = 20000;
+            level *= 1.6;
+        } else {
+            osc.type = "sawtooth";
+            osc.frequency.value = midiToHz(midi);
+            filter.Q.value = 6;
+            filter.frequency.setValueAtTime(1400, t);
+            filter.frequency.exponentialRampToValueAtTime(220, t + duration);
+        }
         gain.gain.setValueAtTime(level, t);
         gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
         osc.connect(filter).connect(gain).connect(this.musicBus);
@@ -349,8 +364,9 @@ class AudioEngine {
         osc.type = "square";
         osc.frequency.value = midiToHz(midi);
         filter.type = "lowpass";
-        filter.frequency.value = 2400;
-        gain.gain.setValueAtTime(level, t);
+        // Chiptune keeps the raw, buzzy square.
+        filter.frequency.value = this.chiptune ? 20000 : 2400;
+        gain.gain.setValueAtTime(this.chiptune ? level * 0.8 : level, t);
         gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
         osc.connect(filter).connect(gain).connect(this.musicBus);
         osc.start(t);
@@ -386,7 +402,9 @@ class AudioEngine {
         const ctx = this.ctx!;
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
-        osc.frequency.setValueAtTime(150, t);
+        // Triangle kick: the pitch-swept triangle drum of 8-bit consoles.
+        osc.type = this.chiptune ? "triangle" : "sine";
+        osc.frequency.setValueAtTime(this.chiptune ? 220 : 150, t);
         osc.frequency.exponentialRampToValueAtTime(40, t + 0.12);
         gain.gain.setValueAtTime(0.8, t);
         gain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);

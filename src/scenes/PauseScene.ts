@@ -1,9 +1,9 @@
 import Phaser from "phaser";
 import { audio } from "../audio/Audio";
-import { CSS, HEIGHT, SCENES, WIDTH } from "../config";
+import { HEIGHT, SCENES, WIDTH } from "../config";
 import { t } from "../i18n";
 import { MenuList } from "../ui/MenuList";
-import { applyNeonPost, neonText } from "../ui/neon";
+import { applyNeonPost, gameText } from "../ui/neon";
 import { createBackdrop, exitOverlay } from "../ui/overlay";
 import type { GameSettings } from "./MenuScene";
 import type { SettingsSceneData } from "./SettingsScene";
@@ -16,10 +16,10 @@ export class PauseScene extends Phaser.Scene {
     create(settings: GameSettings): void {
         createBackdrop(this);
 
-        const title = neonText(this, WIDTH / 2, HEIGHT * 0.3, t("paused"), {
+        const title = gameText(this, WIDTH / 2, HEIGHT * 0.3, t("paused"), {
             size: 72,
             weight: 900,
-            color: CSS.cyan,
+            color: "primary",
             glow: 24,
         });
         this.tweens.add({ targets: title, alpha: 0.6, duration: 900, yoyo: true, repeat: -1, ease: "Sine.InOut" });
@@ -62,7 +62,7 @@ export class PauseScene extends Phaser.Scene {
     }
 
     private openSettings(): void {
-        const data: SettingsSceneData = { from: SCENES.pause, allowLanguage: false };
+        const data: SettingsSceneData = { from: SCENES.pause, fromMenu: false };
         this.scene.launch(SCENES.settings, data);
         this.scene.pause();
     }

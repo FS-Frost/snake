@@ -2,6 +2,7 @@ import "@fontsource/orbitron/latin-400.css";
 import "@fontsource/orbitron/latin-500.css";
 import "@fontsource/orbitron/latin-700.css";
 import "@fontsource/orbitron/latin-900.css";
+import "@fontsource/press-start-2p/latin-400.css";
 import "./style.css";
 import Phaser from "phaser";
 import { COLORS, HEIGHT, WIDTH } from "./config";
@@ -16,7 +17,10 @@ import { SettingsScene } from "./scenes/SettingsScene";
 async function loadFonts(): Promise<void> {
     // Phaser rasterizes text to canvas once; drawing before the font is ready bakes in the fallback.
     try {
-        await Promise.all([400, 500, 700, 900].map((weight) => document.fonts.load(`${weight} 32px Orbitron`)));
+        await Promise.all([
+            ...[400, 500, 700, 900].map((weight) => document.fonts.load(`${weight} 32px Orbitron`)),
+            document.fonts.load("16px 'Press Start 2P'"),
+        ]);
     } catch {
         // Fallback fonts are acceptable.
     }

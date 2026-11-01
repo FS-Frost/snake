@@ -1,9 +1,10 @@
 import Phaser from "phaser";
 import { audio } from "../audio/Audio";
-import { CSS, HEIGHT, SCENES, WIDTH } from "../config";
+import { HEIGHT, SCENES, WIDTH } from "../config";
+import { type TextRole, textCss, theme } from "../theme";
 import { t } from "../i18n";
 import { MenuList } from "../ui/MenuList";
-import { applyNeonPost, neonText } from "../ui/neon";
+import { applyNeonPost, gameText } from "../ui/neon";
 import { createBackdrop, exitOverlay } from "../ui/overlay";
 import type { GameOverData } from "./GameScene";
 
@@ -14,10 +15,10 @@ export class GameOverScene extends Phaser.Scene {
 
     create(data: GameOverData): void {
         createBackdrop(this, 0.8);
-        this.createTitle(data.won ? t("victory") : t("gameOver"), data.won ? CSS.yellow : CSS.magenta);
+        this.createTitle(data.won ? t("victory") : t("gameOver"), data.won ? "highlight" : "danger");
 
         // Score counts up instead of appearing.
-        const score = neonText(this, WIDTH / 2, HEIGHT * 0.36, "0", { size: 84, weight: 500, color: CSS.cyan, glow: 14 });
+        const score = gameText(this, WIDTH / 2, HEIGHT * 0.36, "0", { size: 84, weight: 500, color: "primary", glow: 14 });
         const counter = { value: 0 };
         this.tweens.add({
             targets: counter,
@@ -31,16 +32,17 @@ export class GameOverScene extends Phaser.Scene {
         const seconds = Math.floor(data.timeMs / 1000);
         const time = `${Math.floor(seconds / 60)}:${(seconds % 60).toString().padStart(2, "0")}`;
         const stats = `${t("best")} ${data.best}  ·  ${t("level")} ${data.level}  ·  ${t("length")} ${data.length}  ·  ${t("time")} ${time}`;
-        neonText(this, WIDTH / 2, HEIGHT * 0.45, stats, { size: 16, color: CSS.dim, glow: 0, weight: 400 });
+        gameText(this, WIDTH / 2, HEIGHT * 0.45, stats, { size: 16, color: "dim", glow: 0, weight: 400 });
 
         if (data.isRecord) {
-            const badge = neonText(this, WIDTH / 2, HEIGHT * 0.52, t("newRecord"), {
+            const badge = gameText(this, WIDTH / 2, HEIGHT * 0.52, t("newRecord"), {
                 size: 30,
                 weight: 900,
-                color: CSS.yellow,
+                color: "highlight",
                 glow: 20,
             });
-            badge.setScale(0).setAngle(-6);
+            // Rotated pixel text turns jagged, so Old School keeps it straight.
+            badge.setScale(0).setAngle(theme().pixel ? 0 : -6);
             this.tweens.add({
                 targets: badge,
                 scale: 1,
@@ -79,12 +81,21 @@ export class GameOverScene extends Phaser.Scene {
         applyNeonPost(this);
     }
 
-    private createTitle(label: string, color: string): void {
+    private createTitle(label: string, color: TextRole): void {
         const y = HEIGHT * 0.22;
-        const ghostA = neonText(this, WIDTH / 2, y, label, { size: 64, weight: 900, color: CSS.cyan, glow: 0 }).setAlpha(0.5);
-        const ghostB = neonText(this, WIDTH / 2, y, label, { size: 64, weight: 900, color: CSS.magenta, glow: 0 }).setAlpha(0.5);
-        const title = neonText(this, WIDTH / 2, y, label, { size: 64, weight: 900, color: CSS.white, glow: 26 });
-        title.setShadow(0, 0, color, 26, false, true);
+
+        if (theme().pixel) {
+            // Classic cartridge game over: hard shadow, three blinks, then steady.
+            const title = gameText(this, WIDTH / 2, y, label, { size: 64, color });
+            title.setShadow(4, 4, textCss("dim"), 0, false, true);
+            this.time.addEvent({ delay: 180, repeat: 5, callback: () => title.setVisible(!title.visible) });
+            return;
+        }
+
+        const ghostA = gameText(this, WIDTH / 2, y, label, { size: 64, weight: 900, color: "primary", glow: 0 }).setAlpha(0.5);
+        const ghostB = gameText(this, WIDTH / 2, y, label, { size: 64, weight: 900, color: "danger", glow: 0 }).setAlpha(0.5);
+        const title = gameText(this, WIDTH / 2, y, label, { size: 64, weight: 900, color: "text", glow: 26 });
+        title.setShadow(0, 0, textCss(color), 26, false, true);
 
         title.setScale(2.4).setAlpha(0);
         this.tweens.add({ targets: title, scale: 1, alpha: 1, duration: 320, ease: "Expo.Out" });

@@ -6,6 +6,7 @@
       "name": "elevators",
       "dependencies": {
         "@fontsource/orbitron": "5.3.0",
+        "@fontsource/press-start-2p": "5.3.0",
         "phaser": "4.2.1",
       },
       "devDependencies": {
@@ -253,6 +254,8 @@
     "@esbuild/win32-x64": ["@esbuild/win32-x64@0.28.2", "", { "os": "win32", "cpu": "x64" }, "sha512-5ebpxr3nWMzrL/rnUI755Jkuee0bHL/Gq0WTF9lvcpv73wAp5eu8MfBUgWK9bhWvZjj7yX8etf/8tI8Ney695g=="],
 
     "@fontsource/orbitron": ["@fontsource/orbitron@5.3.0", "", {}, "sha512-+BhPsbUAo/AF7sRcf+TEexm+EWWkgTiR9Zwb7AhYIPkc5oplfvw0C45Oc2xlKPhwVEmxG8hHuA6/Ansbl+Bc6w=="],
+
+    "@fontsource/press-start-2p": ["@fontsource/press-start-2p@5.3.0", "", {}, "sha512-gxWFxdeDglPhEYSwEeooomcaFK8kSQYLQwVxfnOJeYRj2sPEHXjpVtFgEaYfqzOjuAJGrIcJOipu2KY5YkbyuQ=="],
 
     "@isaacs/cliui": ["@isaacs/cliui@9.0.0", "", {}, "sha512-AokJm4tuBHillT+FpMtxQ60n8ObyXBatq7jD2/JA9dxbDDokKQm8KMht5ibGzLVU9IJDIKK4TPKgMHEYMn3lMg=="],
 
