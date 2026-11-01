@@ -275,7 +275,7 @@ export class MenuScene extends Phaser.Scene {
         const title = gameText(this, WIDTH / 2, y, t("title"), { size: 120, weight: 900, color: "text", glow: 28 });
         title.setShadow(0, 0, textCss("danger"), 28, false, true);
 
-        gameText(this, WIDTH / 2, y + 86, t("subtitle"), { size: 26, color: "primary", glow: 10 }).setLetterSpacing(16);
+        gameText(this, WIDTH / 2, y + 98, t("subtitle"), { size: 26, color: "primary", glow: 10 }).setLetterSpacing(16);
 
         // Neon tube flicker plus occasional glitch jitter.
         this.time.addEvent({

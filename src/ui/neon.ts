@@ -68,6 +68,18 @@ export function gameText(
     return text.setOrigin(originX, 0.5);
 }
 
+/**
+ * Shrinks a text so it is at most `maxWidth` wide. Labels grow on phones (minimum size) and the
+ * pixel font is wide, so fixed-width slots need this to never collide.
+ */
+export function fitWidth(text: Phaser.GameObjects.Text, maxWidth: number): Phaser.GameObjects.Text {
+    text.setScale(1);
+    if (text.width > maxWidth) {
+        text.setScale(maxWidth / text.width);
+    }
+    return text;
+}
+
 /** Recolors a text by role, keeping the style rules (glow only in neon). */
 export function setTextRole(text: Phaser.GameObjects.Text, role: TextRole, glow = 0): void {
     const css = textCss(role);

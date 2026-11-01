@@ -4,7 +4,7 @@ import { type Item, RULES, type SnakeGame } from "../core/SnakeGame";
 import { type Cell, DIRECTION_VECTORS, type EffectType, type Mode } from "../core/types";
 import { itemLabel, t } from "../i18n";
 import { theme } from "../theme";
-import { gameText } from "../ui/neon";
+import { fitWidth, gameText } from "../ui/neon";
 
 export const cellX = (x: number) => BOARD_X + x * CELL + CELL / 2;
 export const cellY = (y: number) => BOARD_Y + y * CELL + CELL / 2;
@@ -521,14 +521,16 @@ export class PowerHud {
 
         // Effects: centered, side by side when both run.
         const active = (["slowmo", "ghost"] as const).filter((effect) => logic.isActive(effect));
-        const width = 120;
         const { effectsX, effectsY, stack } = this.layout;
+        // Footer row: one half each when both run. Side column: stacked rows.
+        const slot = stack ? 160 : active.length > 1 ? BOARD_W / 2 - 24 : BOARD_W / 2;
+        const width = Math.min(160, slot);
         active.forEach((effect, index) => {
             const offset = index - (active.length - 1) / 2;
-            const x = stack ? effectsX : effectsX + offset * (width + 24);
+            const x = stack ? effectsX : effectsX + offset * (BOARD_W / 2);
             const y = stack ? effectsY + index * 60 : effectsY;
             const color = effect === "slowmo" ? style.text.primary : style.text.text;
-            this.effectLabels[effect].setVisible(true).setPosition(x, y - 8);
+            fitWidth(this.effectLabels[effect].setVisible(true).setPosition(x, y - 8), slot);
             g.fillStyle(color, 0.25);
             g.fillRect(x - width / 2, y + 10, width, 5);
             g.fillStyle(color, 1);

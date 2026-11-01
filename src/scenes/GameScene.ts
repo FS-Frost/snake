@@ -11,6 +11,7 @@ import {
     HUD_X,
     LAYOUT,
     SCENES,
+    SIDE_W,
     WIDTH,
 } from "../config";
 import { audio } from "../audio/Audio";
@@ -21,7 +22,7 @@ import { difficultyLabel, itemLabel, type Key, modeLabel, t } from "../i18n";
 import { getHighScore, getSettings, submitScore } from "../storage";
 import { activeStyle, styleLabel, surpriseOnFood, type TextRole, theme, toCss } from "../theme";
 import { addBackdrop, particleTexture } from "../ui/Background";
-import { applyNeonPost, fadeIn, flash, gameText, shake, vibrate } from "../ui/neon";
+import { applyNeonPost, fadeIn, fitWidth, flash, gameText, shake, vibrate } from "../ui/neon";
 import { TouchControls } from "../ui/TouchControls";
 import { gameSong, type TrackId, unlockEarned } from "../tracks";
 import { cellX, cellY, drawBoard, FoodView, ItemView, ObstacleView, PowerHud, SnakeView } from "./GameViews";
@@ -64,6 +65,9 @@ const KEY_DIRECTIONS: Record<string, Direction> = {
     KeyD: "right",
 };
 
+/** Half of the footer row under the board, minus a gap. */
+const FOOTER_SLOT = BOARD_W / 2 - 12;
+
 /** Width kept free at the right of the top HUD for the pause button. */
 const PAUSE_SLOT = 64;
 
@@ -92,6 +96,8 @@ export class GameScene extends Phaser.Scene {
     private timeText!: Phaser.GameObjects.Text;
     private bestText!: Phaser.GameObjects.Text;
     private speedText!: Phaser.GameObjects.Text;
+    /** Mode tag and speed under the board; hidden while effect bars use that row. */
+    private footerTexts: Phaser.GameObjects.Text[] = [];
     private itemView!: ItemView;
     private obstacleView!: ObstacleView;
     private powerHud!: PowerHud;
@@ -615,15 +621,18 @@ export class GameScene extends Phaser.Scene {
 
         this.createPauseButton(BOARD_X + BOARD_W - PAUSE_SLOT / 2 + 8, 64);
 
+        // Footer: each text owns half the row. While a timed effect runs, its bars take the row instead.
         const footerY = BOARD_Y + BOARD_H + 32;
         const tag = `${modeLabel(this.settings.mode)}  ·  ${difficultyLabel(this.settings.difficulty)}`;
-        gameText(this, BOARD_X, footerY, tag, { size: 14, color: "secondary", glow: 6, align: "left" });
+        const tagText = gameText(this, BOARD_X, footerY, tag, { size: 14, color: "secondary", glow: 6, align: "left" });
+        fitWidth(tagText, FOOTER_SLOT);
         this.speedText = gameText(this, BOARD_X + BOARD_W, footerY, "", {
             size: 14,
             color: "secondary",
             glow: 6,
             align: "right",
         });
+        this.footerTexts = [tagText, this.speedText];
     }
 
     /** Landscape: everything stacked in the column beside the board. */
@@ -631,17 +640,17 @@ export class GameScene extends Phaser.Scene {
         const x = HUD_X;
         const label = { size: 13, color: "dim", glow: 0, weight: 400 } as const;
 
-        gameText(this, x, 36, t("score"), label);
-        this.scoreText = gameText(this, x, 70, "0", { size: 34, color: "primary", weight: 500, glow: 5 });
-        // y 136-170 belongs to the combo meter (PowerHud).
-        gameText(this, x, 236, t("time"), label);
-        this.timeText = gameText(this, x, 270, "00:00", { size: 28, color: "text", weight: 400, glow: 0 });
-        gameText(this, x, 336, t("best"), label);
-        this.bestText = gameText(this, x, 370, String(this.best), { size: 28, color: "highlight", weight: 500, glow: 5 });
+        gameText(this, x, 32, t("score"), label);
+        this.scoreText = gameText(this, x, 74, "0", { size: 34, color: "primary", weight: 500, glow: 5 });
+        // y 130-170 belongs to the combo meter (PowerHud).
+        gameText(this, x, 232, t("time"), label);
+        this.timeText = gameText(this, x, 272, "00:00", { size: 28, color: "text", weight: 400, glow: 0 });
+        gameText(this, x, 332, t("best"), label);
+        this.bestText = gameText(this, x, 372, String(this.best), { size: 28, color: "highlight", weight: 500, glow: 5 });
 
         const tagStyle = { size: 14, color: "secondary", glow: 6 } as const;
-        gameText(this, x, BOARD_Y + BOARD_H - 70, modeLabel(this.settings.mode), tagStyle);
-        gameText(this, x, BOARD_Y + BOARD_H - 40, difficultyLabel(this.settings.difficulty), tagStyle);
+        fitWidth(gameText(this, x, BOARD_Y + BOARD_H - 70, modeLabel(this.settings.mode), tagStyle), SIDE_W - 24);
+        fitWidth(gameText(this, x, BOARD_Y + BOARD_H - 40, difficultyLabel(this.settings.difficulty), tagStyle), SIDE_W - 24);
         this.speedText = gameText(this, x, BOARD_Y + BOARD_H - 6, "", tagStyle);
 
         // Pause sits at the top of the controls column, within thumb reach.
@@ -674,5 +683,13 @@ export class GameScene extends Phaser.Scene {
         const { difficulty } = this.settings;
         const multiplier = ticksPerSecond(difficulty, this.logic.foodsEaten) / SPEED_CURVES[difficulty].start;
         this.speedText.setText(`${t("speed")}  x${multiplier.toFixed(2)}`);
+
+        if (LAYOUT === "landscape") {
+            fitWidth(this.speedText, SIDE_W - 24);
+        } else {
+            fitWidth(this.speedText, FOOTER_SLOT);
+            const effectRunning = this.logic.isActive("slowmo") || this.logic.isActive("ghost");
+            this.footerTexts.forEach((text) => text.setVisible(!effectRunning));
+        }
     }
 }

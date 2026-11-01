@@ -19,10 +19,14 @@ export class GameOverScene extends Phaser.Scene {
     create(data: GameOverData): void {
         this.lastData = data;
         createBackdrop(this, 0.8);
-        this.createTitle(data.won ? t("victory") : t("gameOver"), data.won ? "highlight" : "danger");
+        // Stacked top to bottom from measured heights: fixed fractions of the height collided on short
+        // (landscape) screens once the minimum text size kicked in.
+        const titleY = Math.max(90, HEIGHT * 0.2);
+        this.createTitle(data.won ? t("victory") : t("gameOver"), data.won ? "highlight" : "danger", titleY);
 
         // Score counts up instead of appearing.
-        const score = gameText(this, WIDTH / 2, HEIGHT * 0.36, "0", { size: 84, weight: 500, color: "primary", glow: 14 });
+        const scoreY = titleY + 104;
+        const score = gameText(this, WIDTH / 2, scoreY, "0", { size: 84, weight: 500, color: "primary", glow: 14 });
         const counter = { value: 0 };
         this.tweens.add({
             targets: counter,
@@ -36,12 +40,15 @@ export class GameOverScene extends Phaser.Scene {
         const seconds = Math.floor(data.timeMs / 1000);
         const time = `${Math.floor(seconds / 60)}:${(seconds % 60).toString().padStart(2, "0")}`;
         const stats = `${t("best")} ${data.best}  ·  ${t("level")} ${data.level}  ·  ${t("length")} ${data.length}  ·  ${t("time")} ${time}`;
-        gameText(this, WIDTH / 2, HEIGHT * 0.45, stats, { size: 16, color: "dim", glow: 0, weight: 400 })
+        const statsText = gameText(this, WIDTH / 2, scoreY + 62, stats, { size: 16, color: "dim", glow: 0, weight: 400 })
             .setWordWrapWidth(Math.min(WIDTH, 720) - 80)
-            .setAlign("center");
+            .setAlign("center")
+            .setOrigin(0.5, 0);
+        let cursor = statsText.y + statsText.height;
 
         if (data.isRecord) {
-            const badge = gameText(this, WIDTH / 2, HEIGHT * 0.52, t("newRecord"), {
+            cursor += 40;
+            const badge = gameText(this, WIDTH / 2, cursor, t("newRecord"), {
                 size: 30,
                 weight: 900,
                 color: "highlight",
@@ -60,7 +67,7 @@ export class GameOverScene extends Phaser.Scene {
             this.tweens.add({ targets: badge, alpha: 0.55, delay: 1700, duration: 450, yoyo: true, repeat: -1 });
         }
 
-        const menu = new MenuList(this, WIDTH / 2, HEIGHT * 0.64, [
+        const menu = new MenuList(this, WIDTH / 2, cursor + 80, [
             {
                 label: () => t("retry"),
                 onSelect: () => {
@@ -87,8 +94,7 @@ export class GameOverScene extends Phaser.Scene {
         applyNeonPost(this);
     }
 
-    private createTitle(label: string, color: TextRole): void {
-        const y = HEIGHT * 0.22;
+    private createTitle(label: string, color: TextRole, y: number): void {
 
         if (theme().pixel) {
             // Classic cartridge game over: hard shadow, three blinks, then steady.
